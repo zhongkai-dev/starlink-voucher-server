@@ -1,6 +1,6 @@
 # Starlink Voucher Management Server
 
-This is the backend server for managing voucher codes for the Starlink Mobile App.
+This is the backend server for managing voucher codes for the Starlink Mobile App using MongoDB.
 
 ## Setup
 
@@ -13,12 +13,25 @@ This is the backend server for managing voucher codes for the Starlink Mobile Ap
    ```bash
    npm install
    ```
-4. Start the server:
+4. (Optional) Create `.env` file with MongoDB connection:
+   ```env
+   MONGODB_URI=mongodb://mongo:UTeVLbRgfLqdsrCzCzFUcitqLqPbLuzn@switchyard.proxy.rlwy.net:32968
+   PORT=3000
+   ```
+   Or the server will use the default MongoDB connection string.
+
+5. Start the server:
    ```bash
    npm start
    ```
 
-The server will run on port 3000 by default.
+The server will run on port 3000 by default and connect to MongoDB automatically.
+
+## MongoDB Connection
+
+The server uses MongoDB for storing voucher codes. The connection string is configured in `server.js` or can be set via `MONGODB_URI` environment variable.
+
+Default connection: `mongodb://mongo:UTeVLbRgfLqdsrCzCzFUcitqLqPbLuzn@switchyard.proxy.rlwy.net:32968`
 
 ## Deploy to starlink.zhongkai.click
 
@@ -38,7 +51,9 @@ pm2 startup
 
 ### Environment Variables:
 
-Set `PORT` environment variable if you want to use a different port.
+Set these environment variables:
+- `MONGODB_URI` - MongoDB connection string (optional, has default)
+- `PORT` - Server port (optional, defaults to 3000)
 
 ## API Endpoints
 
@@ -61,3 +76,15 @@ Access the admin dashboard at `http://localhost:3000` (or your domain) to:
 - View all vouchers
 - See which codes are used/available
 - View statistics
+
+## Database Schema
+
+Vouchers are stored in MongoDB with the following schema:
+```javascript
+{
+  code: String (unique, uppercase),
+  is_used: Boolean (default: false),
+  used_at: Date (null if not used),
+  created_at: Date (auto-generated)
+}
+```

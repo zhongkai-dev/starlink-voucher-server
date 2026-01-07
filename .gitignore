@@ -1,4 +1,7 @@
 node_modules/
-vouchers.db
 .env
 *.log
+.DS_Store
+.vscode/
+*.swp
+*.swo
