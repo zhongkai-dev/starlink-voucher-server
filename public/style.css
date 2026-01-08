@@ -75,16 +75,13 @@ tbody tr:last-child td { border-bottom: none; }
 .modal-button.primary { background: linear-gradient(to right, #3B82F6, var(--accent-blue)); color: white; }
 .modal-button.secondary { background: var(--border-color); color: var(--text-light); }
 
-/* --- DEFINITIVE MOBILE VIEW FIX --- */
 @media (max-width: 768px) {
     body { overflow: auto; }
     #app-page { flex-direction: column; height: auto; }
-
     .sidebar { width: 100%; height: auto; flex-direction: row; padding: 0 5px; box-sizing: border-box; }
     .sidebar-header { display: none; } 
     .sidebar-menu { display: flex; flex-grow: 1; justify-content: space-around; padding: 0; }
     
-    /* The Icon-Only Fix */
     .sidebar-menu li a span { display: none; } 
     .sidebar-menu li a i { width: auto; font-size: 20px; margin: 0; }
     .sidebar-menu li a { padding: 15px; justify-content: center; border-left: none !important; }
