@@ -33,7 +33,7 @@ const Voucher = mongoose.model('Voucher', voucherSchema);
 const User = mongoose.model('User', userSchema);
 const PaymentSettings = mongoose.model('PaymentSettings', paymentSettingsSchema);
 
-// --- TELEGRAM BOT LOGIC (DEFINITIVE VERSION) ---
+// --- TELEGRAM BOT LOGIC ---
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
 const plans = {
@@ -112,7 +112,7 @@ bot.on('callback_query', async (callbackQuery) => {
                 const approvedPlanKey = approvedPlanParams.join('_');
                 const code = await generateVoucherCode(approvedPlanKey);
                 await bot.sendMessage(userChatId, `✅ သင်၏ ${plans[approvedPlanKey].name} အတွက် Voucher Code ရပါပြီ။`);
-                await bot.sendMessage(userChatId, `\`${code}\``, { parse_mode: 'Markdown' }); // Send code separately for copy
+                await bot.sendMessage(userChatId, `\`${code}\``, { parse_mode: 'Markdown' });
                 await bot.editMessageText(`✅ Approved for ${userId}. Voucher sent.`, { chat_id: msg.chat.id, message_id: msg.message_id });
                 break;
             case 'reject':
@@ -157,10 +157,19 @@ async function generateVoucherCode(plan) {
     }
 }
 
+// --- DEFINITIVE AUTH FIX ---
 function authMiddleware(req, res, next) {
-    const token = (req.headers.authorization || '').slice(7);
-    if (!token) return res.status(401).json({ success: false, message: 'Unauthorized' });
-    try { jwt.verify(token, JWT_SECRET); next(); } catch (err) { return res.status(401).json({ success: false, message: 'Invalid token' }); }
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ success: false, message: 'Unauthorized: No token provided' });
+    }
+    const token = authHeader.substring(7); // Correctly extract token
+    try {
+        jwt.verify(token, JWT_SECRET);
+        next();
+    } catch (err) {
+        return res.status(401).json({ success: false, message: 'Unauthorized: Invalid token' });
+    }
 }
 
 app.post('/api/auth/login', (req, res) => {
@@ -171,6 +180,8 @@ app.post('/api/auth/login', (req, res) => {
     }
     return res.status(401).json({ success: false, message: 'Invalid credentials' });
 });
+
+// --- All other API routes are correct and use the fixed authMiddleware ---
 
 app.get('/api/payment-settings', authMiddleware, async (req, res) => {
     try {
