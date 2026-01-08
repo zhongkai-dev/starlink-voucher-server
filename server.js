@@ -94,7 +94,6 @@ bot.on('callback_query', async (callbackQuery) => {
                 const paymentPlanKey = pKeyParts.join('_');
                 const settings = await PaymentSettings.findOne();
                 if (!settings) throw new Error('Payment settings not configured.');
-
                 let paymentDetails = '';
                 if (paymentMethod === 'kpay') {
                     paymentDetails = `ကျေးဇူးပြု၍ အောက်ပါ KPay အကောင့်သို့ *${plans[paymentPlanKey].price.toLocaleString()} MMK* လွှဲပေးပါ။\n\nName: \`${settings.kpay_name}\`\nPhone: \`${settings.kpay_phone}\`\nNote: \`${settings.kpay_note}\`\n\nငွေလွှဲပြီးပါက Screenshot ပို့ပေးပါ။\nငွေလွှဲ Screenshot ကိုစောင့်နေပါတယ်...`;
@@ -102,7 +101,6 @@ bot.on('callback_query', async (callbackQuery) => {
                     const address = paymentMethod === 'usdt-bep20' ? settings.usdt_bep20_address : settings.usdt_trc20_address;
                     paymentDetails = `ကျေးဇူးပြု၍ အောက်ပါ USDT (${paymentMethod.split('-')[1].toUpperCase()}) လိပ်စာသို့ *${plans[paymentPlanKey].usdt} USDT* လွှဲပေးပါ။\n\nAddress:\n\`${address}\`\n\nငွေလွှဲပြီးပါက Screenshot ပို့ပေးပါ။\nငွေလွှဲ Screenshot ကိုစောင့်နေပါတယ်...`;
                 }
-                
                 await bot.editMessageText(paymentDetails, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '⬅️ Back', callback_data: `plan_${paymentPlanKey}` }]] } });
                 bot.once('photo', (photoMsg) => handleScreenshot(photoMsg, paymentPlanKey));
                 break;
@@ -122,7 +120,7 @@ bot.on('callback_query', async (callbackQuery) => {
         }
     } catch (error) {
         if (error.code !== 'ETELEGRAM' || !error.message.includes('message is not modified')) {
-             console.error('Callback Query Error:', error);
+            console.error('Callback Query Error:', error);
         }
     }
 });
@@ -170,6 +168,7 @@ function authMiddleware(req, res, next) {
     }
 }
 
+// --- API ROUTES ---
 app.post('/api/auth/login', (req, res) => {
     const { username, password } = req.body;
     if (username === ADMIN_USER && password === ADMIN_PASS) {
@@ -200,13 +199,19 @@ app.post('/api/vouchers/validate', async (req, res) => {
 app.post('/api/vouchers/generate', authMiddleware, async (req, res) => {
   try {
     const count = req.body.count || 1;
+    const codes = [];
     for (let i = 0; i < count; i++) {
-        try {
-            await new Voucher({ code: generateVoucherCode() }).save();
-        } catch (err) { if (err.code !== 11000) console.error(err); }
+      const code = generateVoucherCode();
+      codes.push({code}); // Store for potential response
+      try {
+        await new Voucher({ code: code }).save();
+      } catch (err) {
+        if (err.code !== 11000) console.error('Error saving voucher:', err);
+      }
     }
     res.json({ success: true, message: `${count} vouchers generated.` });
   } catch (error) {
+    console.error('Error generating vouchers:', error);
     res.status(500).json({ success: false, message: 'Error generating vouchers' });
   }
 });
@@ -233,11 +238,11 @@ app.get('/api/vouchers', authMiddleware, async (req, res) => {
 });
 
 app.delete('/api/vouchers/:id', authMiddleware, async (req, res) => {
-    try { await Voucher.findByIdAndDelete(req.params.id); res.json({ success: true }); } catch(e) { res.status(500).json({ success: false }); }
+    try { await Voucher.findByIdAndDelete(req.params.id); res.json({ success: true, message: 'Voucher deleted.' }); } catch(e) { res.status(500).json({ success: false }); }
 });
 
 app.delete('/api/vouchers/clear', authMiddleware, async (req, res) => {
-    try { await Voucher.deleteMany({}); res.json({ success: true }); } catch(e) { res.status(500).json({ success: false }); }
+    try { await Voucher.deleteMany({}); res.json({ success: true, message: 'All vouchers cleared.' }); } catch(e) { res.status(500).json({ success: false }); }
 });
 
 app.get('/api/users', authMiddleware, async (req, res) => {
@@ -245,11 +250,11 @@ app.get('/api/users', authMiddleware, async (req, res) => {
 });
 
 app.delete('/api/users/:id', authMiddleware, async (req, res) => {
-    try { await User.findByIdAndDelete(req.params.id); res.json({ success: true }); } catch(e) { res.status(500).json({ success: false }); }
+    try { await User.findByIdAndDelete(req.params.id); res.json({ success: true, message: 'Payment deleted.' }); } catch(e) { res.status(500).json({ success: false }); }
 });
 
 app.delete('/api/users/clear', authMiddleware, async (req, res) => {
-    try { await User.deleteMany({}); res.json({ success: true }); } catch(e) { res.status(500).json({ success: false }); }
+    try { await User.deleteMany({}); res.json({ success: true, message: 'All payments cleared.' }); } catch(e) { res.status(500).json({ success: false }); }
 });
 
 app.get('/api/vouchers/stats', authMiddleware, async (req, res) => {
