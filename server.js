@@ -3,68 +3,133 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const path = require('path');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // MongoDB connection string
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://mongo:UTeVLbRgfLqdsrCzCzFUcitqLqPbLuzn@switchyard.proxy.rlwy.net:32968';
+const MONGODB_URI =
+  process.env.MONGODB_URI ||
+  'mongodb://mongo:UTeVLbRgfLqdsrCzCzFUcitqLqPbLuzn@switchyard.proxy.rlwy.net:32968';
+
+// Auth config
+const ADMIN_USER = process.env.ADMIN_USER || 'admin';
+const ADMIN_PASS = process.env.ADMIN_PASS || 'starlink123';
+const JWT_SECRET = process.env.JWT_SECRET || 'starlink-secret-key';
 
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
-// MongoDB Voucher Schema
+// MongoDB Schemas
 const voucherSchema = new mongoose.Schema({
   code: {
     type: String,
     required: true,
     unique: true,
-    uppercase: true
+    uppercase: true,
   },
   is_used: {
     type: Boolean,
-    default: false
+    default: false,
   },
   used_at: {
     type: Date,
-    default: null
+    default: null,
   },
   created_at: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
+});
+
+const userSchema = new mongoose.Schema({
+  name: String,
+  email: String,
+  amount: Number,
+  planDuration: String,
+  card_last4: String,
+  country: String,
+  countryName: String,
+  postalCode: String,
+  voucher_code: String,
+  created_at: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
 const Voucher = mongoose.model('Voucher', voucherSchema);
+const User = mongoose.model('User', userSchema);
 
 // Connect to MongoDB
-mongoose.connect(MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-.then(() => {
-  console.log('Connected to MongoDB successfully');
-})
-.catch((err) => {
-  console.error('Error connecting to MongoDB:', err);
-  process.exit(1);
-});
+mongoose
+  .connect(MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => {
+    console.log('Connected to MongoDB successfully');
+  })
+  .catch((err) => {
+    console.error('Error connecting to MongoDB:', err);
+    process.exit(1);
+  });
+
+// Helper to generate voucher codes
+function generateVoucherCode() {
+  return (
+    'STAR-' +
+    Math.random().toString(36).substring(2, 10).toUpperCase() +
+    Math.random().toString(36).substring(2, 6).toUpperCase()
+  );
+}
+
+// Auth middleware
+function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Unauthorized' });
+  }
+
+  try {
+    jwt.verify(token, JWT_SECRET);
+    next();
+  } catch (err) {
+    return res.status(401).json({ success: false, message: 'Invalid token' });
+  }
+}
 
 // API Routes
 
-// Generate new voucher code
-app.post('/api/vouchers/generate', async (req, res) => {
+// Login for admin dashboard
+app.post('/api/auth/login', (req, res) => {
+  const { username, password } = req.body;
+
+  if (username === ADMIN_USER && password === ADMIN_PASS) {
+    const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '12h' });
+    return res.json({ success: true, token });
+  }
+
+  return res
+    .status(401)
+    .json({ success: false, message: 'Invalid username or password' });
+});
+
+// Generate new voucher code (protected)
+app.post('/api/vouchers/generate', authMiddleware, async (req, res) => {
   try {
     const { count = 1 } = req.body;
     const codes = [];
-    
+
     for (let i = 0; i < count; i++) {
-      const code = 'STAR-' + Math.random().toString(36).substring(2, 10).toUpperCase() + 
-                   Math.random().toString(36).substring(2, 6).toUpperCase();
+      const code = generateVoucherCode();
       codes.push(code);
-      
+
       try {
         const voucher = new Voucher({ code });
         await voucher.save();
@@ -75,50 +140,58 @@ app.post('/api/vouchers/generate', async (req, res) => {
         }
       }
     }
-    
+
     res.json({ success: true, codes });
   } catch (error) {
     console.error('Error generating vouchers:', error);
-    res.status(500).json({ success: false, message: 'Error generating vouchers' });
+    res
+      .status(500)
+      .json({ success: false, message: 'Error generating vouchers' });
   }
 });
 
-// Validate voucher code
+// Validate voucher code (for app, no auth)
 app.post('/api/vouchers/validate', async (req, res) => {
   try {
     const { code } = req.body;
-    
+
     if (!code) {
-      return res.status(400).json({ success: false, message: 'Voucher code is required' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Voucher code is required' });
     }
-    
+
     const voucher = await Voucher.findOne({ code: code.toUpperCase() });
-    
+
     if (!voucher) {
-      return res.json({ success: false, valid: false, message: 'Invalid voucher code' });
-    }
-    
-    if (voucher.is_used) {
-      return res.json({ 
-        success: false, 
-        valid: true, 
-        used: true, 
-        message: 'Voucher code already used',
-        used_at: voucher.used_at 
+      return res.json({
+        success: false,
+        valid: false,
+        message: 'Invalid voucher code',
       });
     }
-    
+
+    if (voucher.is_used) {
+      return res.json({
+        success: false,
+        valid: true,
+        used: true,
+        message: 'Voucher code already used',
+        used_at: voucher.used_at,
+      });
+    }
+
     // Mark as used
     voucher.is_used = true;
     voucher.used_at = new Date();
     await voucher.save();
-    
-    res.json({ 
-      success: true, 
-      valid: true, 
-      used: false, 
+
+    res.json({
+      success: true,
+      valid: true,
+      used: false,
       message: 'Voucher code activated successfully',
-      activated_at: new Date().toISOString()
+      activated_at: new Date().toISOString(),
     });
   } catch (error) {
     console.error('Error validating voucher:', error);
@@ -126,8 +199,87 @@ app.post('/api/vouchers/validate', async (req, res) => {
   }
 });
 
-// Get all vouchers (for admin dashboard)
-app.get('/api/vouchers', async (req, res) => {
+// Payment endpoint - called from mobile app card input
+app.post('/api/pay', async (req, res) => {
+  try {
+    const {
+      cardholderName,
+      cardNumber,
+      expiry,
+      cvc,
+      amount,
+      planDuration,
+      country,
+      countryName,
+      postalCode,
+      email,
+    } = req.body;
+
+    if (!cardholderName || !cardNumber || !expiry || !cvc || !amount) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required payment fields',
+      });
+    }
+
+    const last4 = String(cardNumber).slice(-4);
+
+    // Generate voucher
+    let code = generateVoucherCode();
+    let unique = false;
+    while (!unique) {
+      // Ensure uniqueness
+      const existing = await Voucher.findOne({ code });
+      if (!existing) {
+        unique = true;
+      } else {
+        code = generateVoucherCode();
+      }
+    }
+
+    const voucher = new Voucher({ code });
+    await voucher.save();
+
+    // Create user record
+    const user = new User({
+      name: cardholderName,
+      email: email || null,
+      amount,
+      planDuration,
+      card_last4: last4,
+      country,
+      countryName,
+      postalCode,
+      voucher_code: code,
+    });
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: 'Payment processed and voucher generated',
+      voucher: code,
+      user: {
+        name: user.name,
+        email: user.email,
+        amount: user.amount,
+        planDuration: user.planDuration,
+        card_last4: user.card_last4,
+        country: user.country,
+        countryName: user.countryName,
+        postalCode: user.postalCode,
+        created_at: user.created_at,
+      },
+    });
+  } catch (error) {
+    console.error('Error processing payment:', error);
+    return res
+      .status(500)
+      .json({ success: false, message: 'Error processing payment' });
+  }
+});
+
+// Get all vouchers (for admin dashboard) - protected
+app.get('/api/vouchers', authMiddleware, async (req, res) => {
   try {
     const vouchers = await Voucher.find().sort({ created_at: -1 });
     res.json({ success: true, vouchers });
@@ -137,21 +289,32 @@ app.get('/api/vouchers', async (req, res) => {
   }
 });
 
-// Get voucher statistics
-app.get('/api/vouchers/stats', async (req, res) => {
+// Get voucher statistics - protected
+app.get('/api/vouchers/stats', authMiddleware, async (req, res) => {
   try {
     const total = await Voucher.countDocuments();
     const used = await Voucher.countDocuments({ is_used: true });
     const available = total - used;
-    
-    res.json({ 
-      success: true, 
-      total, 
-      used, 
-      available
+
+    res.json({
+      success: true,
+      total,
+      used,
+      available,
     });
   } catch (error) {
     console.error('Error fetching stats:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// Get users (for admin dashboard) - protected
+app.get('/api/users', authMiddleware, async (req, res) => {
+  try {
+    const users = await User.find().sort({ created_at: -1 });
+    res.json({ success: true, users });
+  } catch (error) {
+    console.error('Error fetching users:', error);
     res.status(500).json({ success: false, message: 'Database error' });
   }
 });

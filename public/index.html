@@ -178,7 +178,22 @@
         <h1>🚀 STARLINK VOUCHER MANAGEMENT</h1>
         
         <div id="message" class="message"></div>
-        
+
+        <!-- Login Card -->
+        <div id="loginCard" class="vouchers-table" style="margin-bottom: 30px; padding: 20px;">
+            <h2 style="margin-bottom: 15px; font-size: 1.4em;">Admin Login</h2>
+            <p style="opacity: 0.8; margin-bottom: 15px; font-size: 0.9em;">
+                Sign in to generate voucher codes and view user information.
+            </p>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+                <input type="text" id="username" placeholder="Username" style="flex: 1; min-width: 140px;">
+                <input type="password" id="password" placeholder="Password" style="flex: 1; min-width: 140px;">
+                <button onclick="login()">Login</button>
+            </div>
+            <small style="opacity: 0.7;">Default: <code>admin / starlink123</code> (change via environment variables).</small>
+        </div>
+
+        <div id="mainContent" style="display: none;">
         <div class="stats" id="stats">
             <div class="stat-card">
                 <h3 id="total">0</h3>
@@ -200,7 +215,7 @@
             <button onclick="refreshData()">Refresh</button>
         </div>
         
-        <div class="vouchers-table">
+        <div class="vouchers-table" style="margin-bottom: 30px;">
             <table>
                 <thead>
                     <tr>
@@ -220,10 +235,36 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Users table -->
+        <div class="vouchers-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Email</th>
+                        <th>Plan / Amount</th>
+                        <th>Voucher</th>
+                        <th>Country</th>
+                        <th>Card</th>
+                        <th>Created At</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTable">
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 40px;">
+                            Login to view users.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        </div>
     </div>
     
     <script>
         const API_BASE = window.location.origin;
+        let authToken = null;
         
         function showMessage(text, type) {
             const msg = document.getElementById('message');
@@ -235,9 +276,44 @@
             }, 3000);
         }
         
+        async function login() {
+            const username = (document.getElementById('username').value || '').trim();
+            const password = (document.getElementById('password').value || '').trim();
+
+            if (!username || !password) {
+                showMessage('Please enter username and password', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    showMessage(data.message || 'Login failed', 'error');
+                    return;
+                }
+
+                authToken = data.token;
+                showMessage('Login successful', 'success');
+                document.getElementById('loginCard').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+                refreshData();
+            } catch (error) {
+                console.error('Login error:', error);
+                showMessage('Login error', 'error');
+            }
+        }
+
         async function loadStats() {
             try {
-                const res = await fetch(`${API_BASE}/api/vouchers/stats`);
+                if (!authToken) return;
+                const res = await fetch(`${API_BASE}/api/vouchers/stats`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
                 const data = await res.json();
                 if (data.success) {
                     document.getElementById('total').textContent = data.total;
@@ -251,7 +327,10 @@
         
         async function loadVouchers() {
             try {
-                const res = await fetch(`${API_BASE}/api/vouchers`);
+                if (!authToken) return;
+                const res = await fetch(`${API_BASE}/api/vouchers`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
                 const data = await res.json();
                 if (data.success) {
                     const tbody = document.getElementById('vouchersTable');
@@ -275,6 +354,36 @@
             }
         }
         
+        async function loadUsers() {
+            try {
+                if (!authToken) return;
+                const res = await fetch(`${API_BASE}/api/users`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const tbody = document.getElementById('usersTable');
+                    if (!data.users || data.users.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">No users yet.</td></tr>';
+                    } else {
+                        tbody.innerHTML = data.users.map(u => `
+                            <tr>
+                                <td>${u.name || '-'}</td>
+                                <td>${u.email || '-'}</td>
+                                <td>${u.planDuration || '-'}<br/><small>$${(u.amount || 0).toFixed(2)}</small></td>
+                                <td>${u.voucher_code || '-'}</td>
+                                <td>${u.countryName || u.country || '-'}</td>
+                                <td>•••• ${u.card_last4 || ''}</td>
+                                <td>${u.created_at ? new Date(u.created_at).toLocaleString() : '-'}</td>
+                            </tr>
+                        `).join('');
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading users:', error);
+            }
+        }
+
         async function generateVouchers() {
             const count = parseInt(document.getElementById('countInput').value) || 1;
             if (count < 1 || count > 100) {
@@ -285,7 +394,10 @@
             try {
                 const res = await fetch(`${API_BASE}/api/vouchers/generate`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${authToken}`
+                    },
                     body: JSON.stringify({ count })
                 });
                 const data = await res.json();
@@ -299,13 +411,15 @@
         }
         
         async function refreshData() {
-            await Promise.all([loadStats(), loadVouchers()]);
+            await Promise.all([loadStats(), loadVouchers(), loadUsers()]);
         }
         
-        // Load data on page load
-        refreshData();
-        // Auto-refresh every 10 seconds
-        setInterval(refreshData, 10000);
+        // Auto-refresh every 10 seconds when logged in
+        setInterval(() => {
+          if (authToken) {
+            refreshData();
+          }
+        }, 10000);
     </script>
 </body>
 </html>
