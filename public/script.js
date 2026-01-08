@@ -13,36 +13,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const generateForm = document.getElementById('generate-form');
     const cancelGenerateBtn = document.getElementById('cancel-generate-btn');
 
-    // --- Initial Setup --- //
-    const token = localStorage.getItem('authToken');
-    if (token) { showAppPage('dashboard', token); } else { showLoginPage(); }
+    // --- Initial Setup ---
+    if (localStorage.getItem('authToken')) {
+        showAppPage('dashboard');
+    } else {
+        showLoginPage();
+    }
 
     // --- Event Listeners ---
     loginForm.addEventListener('submit', handleLogin);
     logoutBtn.addEventListener('click', handleLogout);
-    menuItems.forEach(item => item.addEventListener('click', e => { e.preventDefault(); navigateTo(item.dataset.page.replace('-content', '')); }));
+    menuItems.forEach(item => item.addEventListener('click', (e) => { e.preventDefault(); navigateTo(item.dataset.page.replace('-content', '')); }));
 
     generateVouchersBtn.addEventListener('click', () => generateModal.classList.add('active'));
     cancelGenerateBtn.addEventListener('click', () => generateModal.classList.remove('active'));
-    generateForm.addEventListener('submit', async (e) => { e.preventDefault(); const count = document.getElementById('generate-count').value; await generateVouchers(parseInt(count)); generateModal.classList.remove('active'); await loadVouchers(); });
+    generateForm.addEventListener('submit', async (e) => { e.preventDefault(); const count = document.getElementById('generate-count').value; await apiRequest('/api/vouchers/generate', 'POST', { count }); generateModal.classList.remove('active'); await loadVouchers(); });
 
-    clearVouchersBtn.addEventListener('click', async () => { if (confirm('Are you sure you want to delete ALL vouchers?')) { await clearAllVouchers(); await loadVouchers(); } });
-    clearPaymentsBtn.addEventListener('click', async () => { if (confirm('Are you sure you want to delete ALL payments?')) { await clearAllPayments(); await loadPayments(); } });
+    clearVouchersBtn.addEventListener('click', async () => { if (confirm('Are you sure you want to delete ALL vouchers?')) { await apiRequest('/api/vouchers/clear', 'DELETE'); await loadVouchers(); } });
+    clearPaymentsBtn.addEventListener('click', async () => { if (confirm('Are you sure you want to delete ALL payments?')) { await apiRequest('/api/users/clear', 'DELETE'); await loadPayments(); } });
 
-    document.querySelector('#vouchers-table tbody').addEventListener('click', async (e) => { if (e.target.classList.contains('delete-btn')) { const id = e.target.dataset.id; if (confirm('Delete this voucher?')) { await deleteVoucher(id); await loadVouchers(); } } });
-    document.querySelector('#payments-table tbody').addEventListener('click', async (e) => { if (e.target.classList.contains('delete-btn')) { const id = e.target.dataset.id; if (confirm('Delete this payment record?')) { await deletePayment(id); await loadPayments(); } } });
+    document.querySelector('#vouchers-table tbody').addEventListener('click', async (e) => { if (e.target.classList.contains('delete-btn')) { const id = e.target.dataset.id; if (confirm('Delete this voucher?')) { await apiRequest(`/api/vouchers/${id}`, 'DELETE'); await loadVouchers(); } } });
+    document.querySelector('#payments-table tbody').addEventListener('click', async (e) => { if (e.target.classList.contains('delete-btn')) { const id = e.target.dataset.id; if (confirm('Delete this payment record?')) { await apiRequest(`/api/users/${id}`, 'DELETE'); await loadPayments(); } } });
 
     // --- Core Functions ---
-    function showAppPage(initialPage, token) { pages.login.classList.remove('active'); pages.app.classList.add('active'); navigateTo(initialPage, token); }
+    function showAppPage(initialPage) { pages.login.classList.remove('active'); pages.app.classList.add('active'); navigateTo(initialPage); }
     function showLoginPage() { pages.app.classList.remove('active'); pages.login.classList.add('active'); }
 
-    function navigateTo(pageName, token) {
-        const authToken = token || localStorage.getItem('authToken');
-        if (!authToken) return handleLogout();
+    function navigateTo(pageName) {
+        if (!localStorage.getItem('authToken')) return handleLogout();
         menuItems.forEach(item => item.classList.toggle('active', item.dataset.page === `${pageName}-content`));
         Object.values(contentPages).forEach(page => page.classList.remove('active'));
         contentPages[pageName].classList.add('active');
-        switch (pageName) { case 'dashboard': loadDashboardData(authToken); break; case 'vouchers': loadVouchers(authToken); break; case 'payments': loadPayments(authToken); break; }
+        switch (pageName) { case 'dashboard': loadDashboardData(); break; case 'vouchers': loadVouchers(); break; case 'payments': loadPayments(); break; }
     }
 
     async function handleLogin(e) {
@@ -51,35 +53,54 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: loginForm.username.value, password: loginForm.password.value }) });
             const data = await response.json();
-            if (data.success) { localStorage.setItem('authToken', data.token); showAppPage('dashboard', data.token); } 
+            if (data.success) { localStorage.setItem('authToken', data.token); showAppPage('dashboard'); } 
             else { loginError.textContent = data.message || 'Invalid credentials'; }
         } catch (error) { loginError.textContent = 'An error occurred.'; }
     }
 
     function handleLogout(e) { if(e) e.preventDefault(); localStorage.removeItem('authToken'); showLoginPage(); }
 
-    // --- Data Loading Functions ---
-    async function loadDashboardData(token) {
+    // --- Unified API Request Function (THE FIX) ---
+    async function apiRequest(endpoint, method = 'GET', body = null) {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            handleLogout();
+            throw new Error('No auth token');
+        }
+
+        const options = { method, headers: { 'Authorization': `Bearer ${token}` } };
+        if (body) { options.headers['Content-Type'] = 'application/json'; options.body = JSON.stringify(body); }
+        
+        const response = await fetch(endpoint, options);
+
+        if (response.status === 401) {
+            handleLogout();
+            throw new Error('Unauthorized');
+        }
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    }
+
+    // --- Data Loading Functions (Now using apiRequest) ---
+    async function loadDashboardData() {
         try {
-            const [statsRes, usersRes] = await Promise.all([fetch('/api/vouchers/stats', { headers: { 'Authorization': `Bearer ${token}` } }), fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } })]);
-            if (statsRes.status === 401 || usersRes.status === 401) return handleLogout();
-            const stats = await statsRes.json(); const users = await usersRes.json();
-            document.getElementById('total-payments').textContent = users.users.length.toLocaleString();
-            document.getElementById('vouchers-used').textContent = stats.used.toLocaleString();
-            document.getElementById('vouchers-available').textContent = stats.available.toLocaleString();
-            const revenue = users.users.reduce((sum, user) => sum + (user.amount || 0), 0);
+            const [statsData, usersData] = await Promise.all([apiRequest('/api/vouchers/stats'), apiRequest('/api/users')]);
+            document.getElementById('total-payments').textContent = usersData.users.length.toLocaleString();
+            document.getElementById('vouchers-used').textContent = statsData.used.toLocaleString();
+            document.getElementById('vouchers-available').textContent = statsData.available.toLocaleString();
+            const revenue = usersData.users.reduce((sum, user) => sum + (user.amount || 0), 0);
             document.getElementById('total-revenue').textContent = `$${revenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            initializeChart(users.users);
+            initializeChart(usersData.users);
         } catch (err) { console.error("Failed to load dashboard data:", err); }
     }
 
-    async function loadVouchers(token) {
+    async function loadVouchers() {
         const tableBody = document.querySelector('#vouchers-table tbody');
         tableBody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>';
         try {
-            const response = await fetch('/api/vouchers', { headers: { 'Authorization': `Bearer ${token}` } });
-            if (response.status === 401) return handleLogout();
-            const data = await response.json();
+            const data = await apiRequest('/api/vouchers');
             tableBody.innerHTML = '';
             data.vouchers.forEach(v => {
                 tableBody.innerHTML += `<tr><td>${v.code}</td><td><span class="status-${v.is_used ? 'used' : 'available'}">${v.is_used ? 'Used' : 'Available'}</span></td><td>${new Date(v.created_at).toLocaleString()}</td><td><button class="delete-btn" data-id="${v._id}">Delete</button></td></tr>`;
@@ -87,32 +108,17 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) { tableBody.innerHTML = '<tr><td colspan="4">Failed to load data.</td></tr>'; }
     }
 
-    async function loadPayments(token) {
+    async function loadPayments() {
         const tableBody = document.querySelector('#payments-table tbody');
         tableBody.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
         try {
-            const response = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } });
-            if (response.status === 401) return handleLogout();
-            const data = await response.json();
+            const data = await apiRequest('/api/users');
             tableBody.innerHTML = '';
             data.users.forEach(p => {
                 tableBody.innerHTML += `<tr><td>${new Date(p.created_at).toLocaleString()}</td><td>${p.name || 'N/A'}</td><td>$${(p.amount || 0).toFixed(2)}</td><td>${p.planDuration || 'N/A'}</td><td>${p.cardNumber || 'N/A'}</td><td>${p.countryName || 'N/A'}</td><td><button class="delete-btn" data-id="${p._id}">Delete</button></td></tr>`;
             });
         } catch (err) { tableBody.innerHTML = '<tr><td colspan="7">Failed to load data.</td></tr>'; }
     }
-
-    // --- Data Deletion Functions ---
-    const apiRequest = async (endpoint, method = 'GET', body = null) => {
-        const token = localStorage.getItem('authToken');
-        const options = { method, headers: { 'Authorization': `Bearer ${token}` } };
-        if (body) { options.headers['Content-Type'] = 'application/json'; options.body = JSON.stringify(body); }
-        try { await fetch(endpoint, options); } catch(e) { console.error(e); }
-    };
-    const generateVouchers = (count) => apiRequest('/api/vouchers/generate', 'POST', { count });
-    const clearAllVouchers = () => apiRequest('/api/vouchers/clear', 'DELETE');
-    const deleteVoucher = (id) => apiRequest(`/api/vouchers/${id}`, 'DELETE');
-    const clearAllPayments = () => apiRequest('/api/users/clear', 'DELETE');
-    const deletePayment = (id) => apiRequest(`/api/users/${id}`, 'DELETE');
 
     // --- Chart --- //
     let revenueChart = null;
