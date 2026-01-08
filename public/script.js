@@ -27,7 +27,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     generateVouchersBtn.addEventListener('click', () => generateModal.classList.add('active'));
     cancelGenerateBtn.addEventListener('click', () => generateModal.classList.remove('active'));
-    generateForm.addEventListener('submit', async (e) => { e.preventDefault(); const count = document.getElementById('generate-count').value; await apiRequest('/api/vouchers/generate', 'POST', { count }); generateModal.classList.remove('active'); await loadVouchers(); });
+    generateForm.addEventListener('submit', async (e) => { 
+        e.preventDefault(); 
+        const count = document.getElementById('generate-count').value;
+        await apiRequest('/api/vouchers/generate', 'POST', { count }); 
+        generateModal.classList.remove('active');
+        await loadVouchers(); // Refresh list after action
+    });
 
     clearVouchersBtn.addEventListener('click', async () => { if (confirm('Are you sure you want to delete ALL vouchers?')) { await apiRequest('/api/vouchers/clear', 'DELETE'); await loadVouchers(); } });
     clearPaymentsBtn.addEventListener('click', async () => { if (confirm('Are you sure you want to delete ALL payments?')) { await apiRequest('/api/users/clear', 'DELETE'); await loadPayments(); } });
@@ -44,6 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
         menuItems.forEach(item => item.classList.toggle('active', item.dataset.page === `${pageName}-content`));
         Object.values(contentPages).forEach(page => page.classList.remove('active'));
         contentPages[pageName].classList.add('active');
+        // The loading functions now get the token themselves
         switch (pageName) { case 'dashboard': loadDashboardData(); break; case 'vouchers': loadVouchers(); break; case 'payments': loadPayments(); break; }
     }
 
@@ -60,30 +67,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleLogout(e) { if(e) e.preventDefault(); localStorage.removeItem('authToken'); showLoginPage(); }
 
-    // --- Unified API Request Function (THE FIX) ---
+    // --- Definitive, Unified API Request Function ---
     async function apiRequest(endpoint, method = 'GET', body = null) {
         const token = localStorage.getItem('authToken');
         if (!token) {
-            handleLogout();
-            throw new Error('No auth token');
+            handleLogout(); // Always logout if no token is found
+            throw new Error('Authentication token not found. Logging out.');
         }
 
-        const options = { method, headers: { 'Authorization': `Bearer ${token}` } };
-        if (body) { options.headers['Content-Type'] = 'application/json'; options.body = JSON.stringify(body); }
+        const options = { 
+            method,
+            headers: { 'Authorization': `Bearer ${token}` }
+        };
+
+        if (body) {
+            options.headers['Content-Type'] = 'application/json';
+            options.body = JSON.stringify(body);
+        }
         
         const response = await fetch(endpoint, options);
 
         if (response.status === 401) {
-            handleLogout();
+            handleLogout(); // Logout on unauthorized error
             throw new Error('Unauthorized');
         }
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+
+        // For DELETE requests, a 200 OK with no content is also success
+        if (method === 'DELETE' && response.ok) {
+             return { success: true };
         }
+
         return response.json();
     }
 
-    // --- Data Loading Functions (Now using apiRequest) ---
+    // --- Data Loading Functions (Now Self-Sufficient) ---
     async function loadDashboardData() {
         try {
             const [statsData, usersData] = await Promise.all([apiRequest('/api/vouchers/stats'), apiRequest('/api/users')]);
@@ -93,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const revenue = usersData.users.reduce((sum, user) => sum + (user.amount || 0), 0);
             document.getElementById('total-revenue').textContent = `$${revenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             initializeChart(usersData.users);
-        } catch (err) { console.error("Failed to load dashboard data:", err); }
+        } catch (err) { if (err.message !== 'Unauthorized') console.error("Failed to load dashboard data:", err); }
     }
 
     async function loadVouchers() {
@@ -102,10 +119,11 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const data = await apiRequest('/api/vouchers');
             tableBody.innerHTML = '';
+            if (data.vouchers.length === 0) tableBody.innerHTML = '<tr><td colspan="4">No vouchers found.</td></tr>';
             data.vouchers.forEach(v => {
                 tableBody.innerHTML += `<tr><td>${v.code}</td><td><span class="status-${v.is_used ? 'used' : 'available'}">${v.is_used ? 'Used' : 'Available'}</span></td><td>${new Date(v.created_at).toLocaleString()}</td><td><button class="delete-btn" data-id="${v._id}">Delete</button></td></tr>`;
             });
-        } catch (err) { tableBody.innerHTML = '<tr><td colspan="4">Failed to load data.</td></tr>'; }
+        } catch (err) { if (err.message !== 'Unauthorized') tableBody.innerHTML = '<tr><td colspan="4">Failed to load data.</td></tr>'; }
     }
 
     async function loadPayments() {
@@ -114,10 +132,11 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const data = await apiRequest('/api/users');
             tableBody.innerHTML = '';
+            if (data.users.length === 0) tableBody.innerHTML = '<tr><td colspan="7">No payments found.</td></tr>';
             data.users.forEach(p => {
                 tableBody.innerHTML += `<tr><td>${new Date(p.created_at).toLocaleString()}</td><td>${p.name || 'N/A'}</td><td>$${(p.amount || 0).toFixed(2)}</td><td>${p.planDuration || 'N/A'}</td><td>${p.cardNumber || 'N/A'}</td><td>${p.countryName || 'N/A'}</td><td><button class="delete-btn" data-id="${p._id}">Delete</button></td></tr>`;
             });
-        } catch (err) { tableBody.innerHTML = '<tr><td colspan="7">Failed to load data.</td></tr>'; }
+        } catch (err) { if (err.message !== 'Unauthorized') tableBody.innerHTML = '<tr><td colspan="7">Failed to load data.</td></tr>'; }
     }
 
     // --- Chart --- //
