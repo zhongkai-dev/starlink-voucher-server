@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Starlink Mobile - Dashboard</title>
-    <!-- Cache-busting version number added -->
-    <link rel="stylesheet" href="style.css?v=1.2">
+    <link rel="stylesheet" href="style.css?v=1.4">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -54,30 +53,52 @@
             <div id="vouchers-content" class="content-page">
                 <header>
                     <h2>Voucher Management</h2>
-                    <button id="generate-vouchers-btn" class="action-button">Generate Vouchers</button>
+                    <div>
+                        <button id="clear-vouchers-btn" class="action-button secondary">Clear All</button>
+                        <button id="generate-vouchers-btn" class="action-button">Generate Vouchers</button>
+                    </div>
                 </header>
                 <div class="table-container">
                     <table id="vouchers-table">
-                        <thead><tr><th>Code</th><th>Status</th><th>Created At</th></tr></thead>
-                        <tbody><tr><td colspan="3">Loading...</td></tr></tbody>
+                        <thead><tr><th>Code</th><th>Status</th><th>Created At</th><th>Actions</th></tr></thead>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
 
             <!-- Payments Content -->
             <div id="payments-content" class="content-page">
-                <header><h2>Payment Details</h2></header>
+                <header>
+                    <h2>Payment Details</h2>
+                    <button id="clear-payments-btn" class="action-button secondary">Clear All</button>
+                </header>
                 <div class="table-container">
                     <table id="payments-table">
-                        <thead><tr><th>Date</th><th>Name</th><th>Amount</th><th>Plan</th><th>Card</th><th>Country</th></tr></thead>
-                        <tbody><tr><td colspan="6">Loading...</td></tr></tbody>
+                        <thead><tr><th>Date</th><th>Name</th><th>Amount</th><th>Plan</th><th>Card</th><th>Country</th><th>Actions</th></tr></thead>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Cache-busting version number added -->
-    <script src="script.js?v=1.2"></script>
+    <!-- Generate Vouchers Modal -->
+    <div id="generate-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3>Generate New Vouchers</h3>
+            <form id="generate-form">
+                <div class="input-group">
+                    <input type="number" id="generate-count" value="10" min="1" max="100" required>
+                    <label for="generate-count">Number of vouchers</label>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="cancel-generate-btn" class="modal-button secondary">Cancel</button>
+                    <button type="submit" class="modal-button primary">Generate</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="script.js?v=1.4"></script>
 </body>
 </html>
