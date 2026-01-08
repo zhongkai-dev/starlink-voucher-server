@@ -33,7 +33,7 @@ const Voucher = mongoose.model('Voucher', voucherSchema);
 const User = mongoose.model('User', userSchema);
 const PaymentSettings = mongoose.model('PaymentSettings', paymentSettingsSchema);
 
-// --- TELEGRAM BOT LOGIC ---
+// --- TELEGRAM BOT LOGIC (DEFINITIVE VERSION) ---
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
 const plans = {
@@ -94,13 +94,16 @@ bot.on('callback_query', async (callbackQuery) => {
                 const paymentPlanKey = pKeyParts.join('_');
                 const settings = await PaymentSettings.findOne();
                 if (!settings) throw new Error('Payment settings not configured.');
+
                 let paymentDetails = '';
+
                 if (paymentMethod === 'kpay') {
                     paymentDetails = `ကျေးဇူးပြု၍ အောက်ပါ KPay အကောင့်သို့ *${plans[paymentPlanKey].price.toLocaleString()} MMK* လွှဲပေးပါ။\n\nName: \`${settings.kpay_name}\`\nPhone: \`${settings.kpay_phone}\`\nNote: \`${settings.kpay_note}\`\n\nငွေလွှဲပြီးပါက Screenshot ပို့ပေးပါ။\nငွေလွှဲ Screenshot ကိုစောင့်နေပါတယ်...`;
                 } else {
                     const address = paymentMethod === 'usdt-bep20' ? settings.usdt_bep20_address : settings.usdt_trc20_address;
                     paymentDetails = `ကျေးဇူးပြု၍ အောက်ပါ USDT (${paymentMethod.split('-')[1].toUpperCase()}) လိပ်စာသို့ *${plans[paymentPlanKey].usdt} USDT* လွှဲပေးပါ။\n\nAddress:\n\`${address}\`\n\nငွေလွှဲပြီးပါက Screenshot ပို့ပေးပါ။\nငွေလွှဲ Screenshot ကိုစောင့်နေပါတယ်...`;
                 }
+                
                 await bot.editMessageText(paymentDetails, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '⬅️ Back', callback_data: `plan_${paymentPlanKey}` }]] } });
                 bot.once('photo', (photoMsg) => handleScreenshot(photoMsg, paymentPlanKey));
                 break;
@@ -120,7 +123,7 @@ bot.on('callback_query', async (callbackQuery) => {
         }
     } catch (error) {
         if (error.code !== 'ETELEGRAM' || !error.message.includes('message is not modified')) {
-            console.error('Callback Query Error:', error);
+             console.error('Callback Query Error:', error);
         }
     }
 });
@@ -130,6 +133,7 @@ async function handleScreenshot(msg, planKey) {
     const userId = msg.from.id;
     const userFullName = `${msg.from.first_name} ${msg.from.last_name || ''}`.trim();
     const caption = `New Payment Screenshot for ${plans[planKey].name} from user ${userFullName} (ID: ${userId}).`;
+    
     await bot.forwardMessage(ADMIN_TELEGRAM_ID, chatId, msg.message_id);
     await bot.sendMessage(ADMIN_TELEGRAM_ID, caption, {
         reply_markup: {
@@ -178,41 +182,44 @@ app.post('/api/auth/login', (req, res) => {
     return res.status(401).json({ success: false, message: 'Invalid credentials' });
 });
 
-// THIS IS THE CRITICAL MISSING ENDPOINT FOR THE MOBILE APP
+// ** RESTORED AND CORRECTED ENDPOINT FOR MOBILE APP **
 app.post('/api/vouchers/validate', async (req, res) => {
   try {
     const { code } = req.body;
-    if (!code) return res.status(400).json({ success: false, message: 'Voucher code is required' });
+    if (!code) {
+        return res.status(400).json({ success: false, message: 'Voucher code is required' });
+    }
     const voucher = await Voucher.findOne({ code: code.toUpperCase() });
-    if (!voucher) return res.json({ success: false, valid: false, message: 'Invalid voucher code' });
-    if (voucher.is_used) return res.json({ success: true, valid: true, used: true, message: 'Voucher code already used' });
+
+    if (!voucher) {
+        return res.json({ success: false, valid: false, message: 'Invalid voucher code' });
+    }
+    if (voucher.is_used) {
+        return res.json({ success: true, valid: true, used: true, message: 'Voucher code already used' });
+    }
+    
     voucher.is_used = true;
     voucher.used_at = new Date();
     await voucher.save();
-    res.json({ success: true, valid: true, used: false, message: 'Voucher code activated successfully' });
+    return res.json({ success: true, valid: true, used: false, message: 'Voucher code activated successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Database error during validation' });
+    console.error("Validation Error:", error);
+    return res.status(500).json({ success: false, message: 'Database error during validation' });
   }
 });
 
-// THIS IS THE MISSING ENDPOINT FOR THE DASHBOARD
+// ** RESTORED AND CORRECTED ENDPOINT FOR DASHBOARD **
 app.post('/api/vouchers/generate', authMiddleware, async (req, res) => {
   try {
     const count = req.body.count || 1;
-    const codes = [];
     for (let i = 0; i < count; i++) {
-      const code = generateVoucherCode();
-      codes.push({code}); // Store for potential response
-      try {
-        await new Voucher({ code: code }).save();
-      } catch (err) {
-        if (err.code !== 11000) console.error('Error saving voucher:', err);
-      }
+        // We don't need a try/catch here because the main one will handle it
+        await new Voucher({ code: generateVoucherCode() }).save();
     }
-    res.json({ success: true, message: `${count} vouchers generated.` });
+    return res.json({ success: true, message: `${count} vouchers generated.` });
   } catch (error) {
     console.error('Error generating vouchers:', error);
-    res.status(500).json({ success: false, message: 'Error generating vouchers' });
+    return res.status(500).json({ success: false, message: 'Error generating vouchers' });
   }
 });
 
@@ -222,45 +229,98 @@ app.get('/api/payment-settings', authMiddleware, async (req, res) => {
         if (!settings) {
             settings = await new PaymentSettings({ kpay_name: 'Testing', kpay_phone: '09123456789', kpay_note: 'Payment', usdt_amount: 12, usdt_bep20_address: 'demo-bep20-address', usdt_trc20_address: 'demo-trc20-address' }).save();
         }
-        res.json({ success: true, settings });
-    } catch (e) { res.status(500).json({ success: false }); }
+        return res.json({ success: true, settings });
+    } catch (e) {
+        console.error("Get Settings Error:", e);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
 });
 
 app.post('/api/payment-settings', authMiddleware, async (req, res) => {
     try {
         const settings = await PaymentSettings.findOneAndUpdate({}, req.body, { new: true, upsert: true });
-        res.json({ success: true, settings });
-    } catch (e) { res.status(500).json({ success: false }); }
+        return res.json({ success: true, settings });
+    } catch (e) {
+        console.error("Save Settings Error:", e);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
 });
 
 app.get('/api/vouchers', authMiddleware, async (req, res) => {
-    try { res.json({ success: true, vouchers: await Voucher.find().sort({ created_at: -1 }) }); } catch (e) { res.status(500).json({ success: false }); }
+    try {
+        const vouchers = await Voucher.find().sort({ created_at: -1 });
+        return res.json({ success: true, vouchers });
+    } catch (e) {
+        console.error("Get Vouchers Error:", e);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
 });
 
 app.delete('/api/vouchers/:id', authMiddleware, async (req, res) => {
-    try { await Voucher.findByIdAndDelete(req.params.id); res.json({ success: true, message: 'Voucher deleted.' }); } catch(e) { res.status(500).json({ success: false }); }
+    try {
+        await Voucher.findByIdAndDelete(req.params.id);
+        return res.json({ success: true, message: 'Voucher deleted.' });
+    } catch(e) {
+        console.error("Delete Voucher Error:", e);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
 });
 
+// ** ROBUST DELETE ENDPOINT **
 app.delete('/api/vouchers/clear', authMiddleware, async (req, res) => {
-    try { await Voucher.deleteMany({}); res.json({ success: true, message: 'All vouchers cleared.' }); } catch(e) { res.status(500).json({ success: false }); }
+    try {
+        await Voucher.deleteMany({});
+        return res.status(200).json({ success: true, message: 'All vouchers cleared.' });
+    } catch(e) {
+        console.error("Error clearing vouchers:", e);
+        return res.status(500).json({ success: false, message: 'Server error while clearing vouchers.' });
+    }
 });
 
 app.get('/api/users', authMiddleware, async (req, res) => {
-    try { res.json({ success: true, users: await User.find().sort({ created_at: -1 }) }); } catch (e) { res.status(500).json({ success: false }); }
+    try {
+        const users = await User.find().sort({ created_at: -1 });
+        return res.json({ success: true, users });
+    } catch (e) {
+        console.error("Get Users Error:", e);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
 });
 
 app.delete('/api/users/:id', authMiddleware, async (req, res) => {
-    try { await User.findByIdAndDelete(req.params.id); res.json({ success: true, message: 'Payment deleted.' }); } catch(e) { res.status(500).json({ success: false }); }
+    try {
+        await User.findByIdAndDelete(req.params.id);
+        return res.json({ success: true, message: 'Payment deleted.' });
+    } catch(e) {
+        console.error("Delete User Error:", e);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
 });
 
+// ** ROBUST DELETE ENDPOINT **
 app.delete('/api/users/clear', authMiddleware, async (req, res) => {
-    try { await User.deleteMany({}); res.json({ success: true, message: 'All payments cleared.' }); } catch(e) { res.status(500).json({ success: false }); }
+    try {
+        await User.deleteMany({});
+        return res.status(200).json({ success: true, message: 'All payments cleared.' });
+    } catch(e) {
+        console.error("Error clearing users/payments:", e);
+        return res.status(500).json({ success: false, message: 'Server error while clearing payments.' });
+    }
 });
 
 app.get('/api/vouchers/stats', authMiddleware, async (req, res) => {
-    try { const total = await Voucher.countDocuments(); const used = await Voucher.countDocuments({ is_used: true }); res.json({ success: true, total, used, available: total - used }); } catch (e) { res.status(500).json({ success: false }); }
+    try {
+        const total = await Voucher.countDocuments();
+        const used = await Voucher.countDocuments({ is_used: true });
+        return res.json({ success: true, total, used, available: total - used });
+    } catch (e) {
+        console.error("Get Stats Error:", e);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
 });
 
 // --- SERVER START ---
-app.get('/*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
