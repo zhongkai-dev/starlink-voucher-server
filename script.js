@@ -7,9 +7,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Authentication Logic --- //
 
-    // Check if the user is already logged in
+    // Definitive check for the user's login state.
     if (localStorage.getItem('isLoggedIn') === 'true') {
         showDashboard();
+    } else {
+        showLogin();
     }
 
     loginForm.addEventListener('submit', (e) => {
