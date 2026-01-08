@@ -10,10 +10,20 @@
     --accent-red: #F87171;
 }
 
-body { font-family: 'Montserrat', sans-serif; margin: 0; background-color: var(--dark-bg); color: var(--text-light); display: flex; height: 100vh; overflow: hidden; }
+body {
+    font-family: 'Montserrat', sans-serif;
+    margin: 0;
+    background-color: var(--dark-bg);
+    color: var(--text-light);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
 .page { display: none; width: 100%; height: 100%; }
 .page.active { display: flex; }
 
+/* --- Login Page --- */
 #login-page { justify-content: center; align-items: center; }
 .login-box { background-color: var(--light-dark-bg); padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); text-align: center; width: 350px; }
 .login-box h2 { font-size: 24px; margin-bottom: 5px; }
@@ -26,12 +36,14 @@ body { font-family: 'Montserrat', sans-serif; margin: 0; background-color: var(-
 .login-button:hover { box-shadow: 0 5px 15px rgba(96, 165, 250, 0.4); }
 .error-message { color: var(--accent-red); font-size: 12px; margin-top: 15px; height: 15px; }
 
+/* --- Dashboard App --- */
 .sidebar { width: 250px; background-color: var(--light-dark-bg); display: flex; flex-direction: column; border-right: 1px solid var(--border-color); flex-shrink: 0; }
 .sidebar-header { padding: 20px; text-align: center; border-bottom: 1px solid var(--border-color); }
 .sidebar-header h3 { margin: 0; font-size: 20px; }
 .sidebar-menu { list-style: none; padding: 20px 0; margin: 0; }
-.sidebar-menu li a { display: block; padding: 15px 20px; color: #D1D5DB; text-decoration: none; font-weight: 600; transition: all 0.2s; }
+.sidebar-menu li a { display: flex; align-items: center; gap: 15px; padding: 15px 20px; color: #D1D5DB; text-decoration: none; font-weight: 600; transition: all 0.2s; }
 .sidebar-menu li.active a, .sidebar-menu li a:hover { background-color: var(--border-color); color: #FFFFFF; border-left: 3px solid var(--accent-blue); padding-left: 17px; }
+.sidebar-menu li a i { width: 20px; text-align: center; }
 
 .main-content { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
 header { display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
@@ -41,7 +53,6 @@ header div { display: flex; gap: 15px; }
 .action-button { background: linear-gradient(to right, #3B82F6, var(--accent-blue)); color: white; border: none; border-radius: 8px; padding: 10px 15px; font-weight: 600; cursor: pointer; transition: box-shadow 0.3s; }
 .action-button:hover { box-shadow: 0 5px 15px rgba(96, 165, 250, 0.4); }
 .action-button.secondary { background: var(--border-color); }
-.action-button.danger { background: var(--accent-red); }
 .delete-btn { background: none; border: none; color: var(--accent-red); cursor: pointer; padding: 5px; }
 
 .content-page { display: none; flex-grow: 1; flex-direction: column; overflow: hidden; }
@@ -63,6 +74,11 @@ tbody tr:last-child td { border-bottom: none; }
 .status-used { color: var(--accent-red); font-weight: 600; }
 .status-available { color: #34D399; font-weight: 600; }
 
+.settings-form-container { padding: 20px; max-width: 600px; }
+.settings-form-container h3 { margin-top: 20px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+.settings-form-container .input-group { margin-bottom: 20px; }
+.settings-form-container .action-button { margin-top: 20px; }
+
 /* Modal Styles */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
 .modal-overlay.active { display: flex; }
@@ -73,4 +89,40 @@ tbody tr:last-child td { border-bottom: none; }
 .modal-button.primary { background: linear-gradient(to right, #3B82F6, var(--accent-blue)); color: white; }
 .modal-button.secondary { background: var(--border-color); color: var(--text-light); }
 
-@media (max-width: 768px) { body { overflow: auto; } #app-page { flex-direction: column; height: auto; } .sidebar { width: 100%; height: auto; flex-direction: row; padding: 0 10px; box-sizing: border-box; } .sidebar-header { display: none; } .sidebar-menu { display: flex; flex-grow: 1; justify-content: space-around; } .sidebar-menu li a { padding: 15px 10px; font-size: 13px; white-space: nowrap; border-left: none !important; } .sidebar-menu li.active a { background-color: transparent; color: var(--accent-blue); border-bottom: 2px solid var(--accent-blue); } header h2 { font-size: 20px; } .action-button { padding: 8px 12px; font-size: 14px; } .card-container { grid-template-columns: 1fr; padding: 15px; gap: 15px; } .card p { font-size: 24px; } .table-container { padding: 15px; overflow-x: auto; -webkit-overflow-scrolling: touch; background: var(--dark-bg); border-radius: 8px; } table { min-width: 700px; } }
+
+/* --- DEFINITIVE MOBILE VIEW FIX --- */
+@media (max-width: 768px) {
+    body { overflow: auto; }
+    #app-page { flex-direction: column; height: auto; }
+
+    .sidebar { width: 100%; height: auto; flex-direction: row; padding: 0 5px; box-sizing: border-box; }
+    .sidebar-header { display: none; }
+    .sidebar-menu { display: flex; flex-grow: 1; justify-content: space-around; padding: 0; }
+    
+    /* THE ICON-ONLY FIX */
+    .sidebar-menu li a span { display: none; } 
+    .sidebar-menu li a i { width: auto; font-size: 18px; }
+    .sidebar-menu li a { padding: 15px; border-left: none !important; }
+    .sidebar-menu li.active a { background-color: transparent; border-bottom: 3px solid var(--accent-blue); }
+
+    .main-content { overflow: visible; }
+    header { padding: 15px; }
+    header h2 { font-size: 20px; }
+    .action-button { padding: 8px 12px; font-size: 14px; }
+
+    .card-container { grid-template-columns: 1fr; padding: 15px; gap: 15px; }
+    .card p { font-size: 24px; }
+    
+    .table-container { padding: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { min-width: 700px; }
+    tbody td, thead th { padding: 10px; font-size: 13px; }
+
+    .settings-form-container { padding: 15px; }
+    .settings-form-container h3 { font-size: 18px; }
+    .settings-form-container .input-group label { font-size: 14px; }
+    .settings-form-container .input-group input { font-size: 14px; }
+}
+
+@media (max-width: 480px) {
+    .login-box { width: 90%; padding: 30px; }
+}
