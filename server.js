@@ -33,7 +33,8 @@ const Voucher = mongoose.model('Voucher', voucherSchema);
 const User = mongoose.model('User', userSchema);
 const PaymentSettings = mongoose.model('PaymentSettings', paymentSettingsSchema);
 
-// --- TELEGRAM BOT LOGIC ---
+
+// --- TELEGRAM BOT LOGIC (DEFINITIVE VERSION) ---
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
 const plans = {
@@ -43,34 +44,52 @@ const plans = {
     '12_months': { name: '12 Months', price: 450000, usdt: 140 },
 };
 
+// Main menu text and keyboard
+const mainMenu = {
+    text: "🇲🇲 Starlink Mobile မှကြိုဆိုပါတယ်။\n\nအောက်ပါ Menu မှတဆင့် ဝန်ဆောင်မှုများကို ရွေးချယ်နိုင်ပါပြီ။",
+    options: {
+        reply_markup: {
+            inline_keyboard: [
+                [{ text: "App ဒေါင်းလုဒ်ရယူရန်", callback_data: 'download' }],
+                [{ text: "အသုံးပြုပုံလမ်းညွှန်", callback_data: 'guide' }],
+                [{ text: "Voucher ဝယ်ရန်", callback_data: 'buy' }]
+            ]
+        }
+    }
+};
+
 bot.onText(/\/start/, (msg) => {
-    const welcomeText = "🇲🇲 Starlink Mobile မှကြိုဆိုပါတယ်။\n\nအောက်ပါ Menu မှတဆင့် ဝန်ဆောင်မှုများကို ရွေးချယ်နိုင်ပါပြီ။";
-    bot.sendMessage(msg.chat.id, welcomeText, { reply_markup: { inline_keyboard: [[{ text: "App ဒေါင်းလုဒ်ရယူရန်", callback_data: 'download_app' }], [{ text: "အသုံးပြုပုံလမ်းညွှန်", callback_data: 'guide' }], [{ text: "Voucher ဝယ်ရန်", callback_data: 'buy_voucher' }]] } });
+    bot.sendMessage(msg.chat.id, mainMenu.text, mainMenu.options);
 });
 
 bot.on('callback_query', async (callbackQuery) => {
     const msg = callbackQuery.message;
     const data = callbackQuery.data;
     const chatId = msg.chat.id;
+    const messageId = msg.message_id;
     const [action, ...params] = data.split('_');
 
     try {
         switch (action) {
+            case 'start':
+                await bot.editMessageText(mainMenu.text, { chat_id: chatId, message_id: messageId, ...mainMenu.options });
+                break;
             case 'download':
-                bot.sendMessage(chatId, "Starlink Mobile App ကို ပို့ပေးနေပါသည်၊ ခေတ္တစောင့်ဆိုင်းပေးပါ။");
-                bot.sendDocument(chatId, APK_FILE_PATH).catch(e => console.error('APK Send Error:', e));
+                await bot.editMessageText("Starlink Mobile App ကို ပို့ပေးနေပါသည်၊ ခေတ္တစောင့်ဆိုင်းပေးပါ။\n\nပြီးဆုံးပါက Menu သို့ပြန်သွားရန် /start ကိုနှိပ်ပါ။", { chat_id: chatId, message_id: messageId });
+                await bot.sendDocument(chatId, APK_FILE_PATH).catch(e => console.error('APK Send Error:', e));
                 break;
             case 'guide':
-                bot.sendMessage(chatId, "Starlink Mobile အသုံးပြုပုံအဆင့်ဆင့်မှာ အောက်ပါအတိုင်းဖြစ်ပါသည်:\n\n1. App ကို Install လုပ်ပါ။\n2. Voucher ဝယ်ယူပြီး ရရှိလာသော Code ကို App တွင်ထည့်သွင်းပါ။\n3. Activate လုပ်ပြီး Starlink WiFi ကိုအသုံးပြုနိုင်ပါပြီ။");
+                const guideText = "Starlink Mobile အသုံးပြုပုံအဆင့်ဆင့်မှာ အောက်ပါအတိုင်းဖြစ်ပါသည်:\n\n1. App ကို Install လုပ်ပါ။\n2. Voucher ဝယ်ယူပြီး ရရှိလာသော Code ကို App တွင်ထည့်သွင်းပါ။\n3. Activate လုပ်ပြီး Starlink WiFi ကိုအသုံးပြုနိုင်ပါပြီ။";
+                await bot.editMessageText(guideText, { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [[{ text: '⬅️ Back to Main Menu', callback_data: 'start' }]] } });
                 break;
             case 'buy':
                 const planOptions = Object.keys(plans).map(key => ([{ text: `${plans[key].name} - ${plans[key].price.toLocaleString()} MMK`, callback_data: `plan_${key}` }]));
-                bot.sendMessage(chatId, "အောက်ပါ Plan များမှ နှစ်သက်ရာတစ်ခုကို ရွေးချယ်ပါ။", { reply_markup: { inline_keyboard: planOptions } });
+                await bot.editMessageText("အောက်ပါ Plan များမှ နှစ်သက်ရာတစ်ခုကို ရွေးချယ်ပါ။", { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [...planOptions, [{ text: '⬅️ Back', callback_data: 'start' }]] } });
                 break;
             case 'plan':
                 const planKey = params.join('_');
                 if (!plans[planKey]) return;
-                bot.sendMessage(chatId, `သင် ${plans[planKey].name} ကို ရွေးချယ်ထားပါတယ်။ \n\nကျေးဇူးပြု၍ ငွေပေးချေမှုနည်းလမ်းတစ်ခုကို ရွေးချယ်ပါ။`, { reply_markup: { inline_keyboard: [[{ text: "KPay", callback_data: `payment_kpay_${planKey}` }], [{ text: "USDT (BEP20)", callback_data: `payment_usdt-bep20_${planKey}` }], [{ text: "USDT (TRC20)", callback_data: `payment_usdt-trc20_${planKey}` }]] } });
+                await bot.editMessageText(`သင် ${plans[planKey].name} ကို ရွေးချယ်ထားပါတယ်။ \n\nကျေးဇူးပြု၍ ငွေပေးချေမှုနည်းလမ်းတစ်ခုကို ရွေးချယ်ပါ။`, { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [[{ text: "KPay", callback_data: `payment_kpay_${planKey}` }], [{ text: "USDT (BEP20)", callback_data: `payment_usdt-bep20_${planKey}` }], [{ text: "USDT (TRC20)", callback_data: `payment_usdt-trc20_${planKey}` }], [{ text: '⬅️ Back', callback_data: 'buy' }]] } });
                 break;
             case 'payment':
                 const [paymentMethod, ...pKeyParts] = params;
@@ -78,15 +97,17 @@ bot.on('callback_query', async (callbackQuery) => {
                 const settings = await PaymentSettings.findOne();
                 if (!settings) throw new Error('Payment settings not configured.');
 
+                let paymentDetails = '';
+                let copyableText = '';
+
                 if (paymentMethod === 'kpay') {
-                    await bot.sendMessage(chatId, `ကျေးဇူးပြု၍ အောက်ပါ KPay အကောင့်သို့ ${plans[paymentPlanKey].price.toLocaleString()} MMK လွှဲပေးပါ။\n\nName: ${settings.kpay_name}\nNote: ${settings.kpay_note}`);
-                    await bot.sendMessage(chatId, `\`${settings.kpay_phone}\``, { parse_mode: 'Markdown' });
+                    paymentDetails = `ကျေးဇူးပြု၍ အောက်ပါ KPay အကောင့်သို့ *${plans[paymentPlanKey].price.toLocaleString()} MMK* လွှဲပေးပါ။\n\nName: \`${settings.kpay_name}\`\nPhone: \`${settings.kpay_phone}\`\nNote: \`${settings.kpay_note}\`\n\nငွေလွှဲပြီးပါက Screenshot ပို့ပေးပါ။\nငွေလွှဲ Screenshot ကိုစောင့်နေပါတယ်...`;
                 } else {
                     const address = paymentMethod === 'usdt-bep20' ? settings.usdt_bep20_address : settings.usdt_trc20_address;
-                    await bot.sendMessage(chatId, `ကျေးဇူးပြု၍ အောက်ပါ USDT (${paymentMethod.split('-')[1].toUpperCase()}) လိပ်စာသို့ ${plans[paymentPlanKey].usdt} USDT လွှဲပေးပါ။`);
-                    await bot.sendMessage(chatId, `\`${address}\``, { parse_mode: 'Markdown' });
+                    paymentDetails = `ကျေးဇူးပြု၍ အောက်ပါ USDT (${paymentMethod.split('-')[1].toUpperCase()}) လိပ်စာသို့ *${plans[paymentPlanKey].usdt} USDT* လွှဲပေးပါ။\n\nAddress:\n\`${address}\`\n\nငွေလွှဲပြီးပါက Screenshot ပို့ပေးပါ။\nငွေလွှဲ Screenshot ကိုစောင့်နေပါတယ်...`;
                 }
-                await bot.sendMessage(chatId, "ငွေလွှဲပြီးပါက Screenshot ပို့ပေးပါ။\nငွေလွှဲ Screenshot ကိုစောင့်နေပါတယ်...");
+                
+                await bot.editMessageText(paymentDetails, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '⬅️ Back', callback_data: `plan_${paymentPlanKey}` }]] } });
                 bot.once('photo', (photoMsg) => handleScreenshot(photoMsg, paymentPlanKey));
                 break;
             case 'approve':
@@ -94,15 +115,19 @@ bot.on('callback_query', async (callbackQuery) => {
                 const approvedPlanKey = approvedPlanParams.join('_');
                 const code = await generateVoucherCode(approvedPlanKey);
                 bot.sendMessage(userChatId, `✅ သင်၏ ${plans[approvedPlanKey].name} အတွက် Voucher Code ရပါပြီ။\n\n\`\`\`${code}\`\`\``, { parse_mode: 'Markdown' });
-                bot.editMessageText(`✅ Approved for ${userId}.`, { chat_id: msg.chat.id, message_id: msg.message_id });
+                bot.editMessageText(`✅ Approved for ${userId}. Voucher sent.`, { chat_id: msg.chat.id, message_id: msg.message_id });
                 break;
             case 'reject':
                 const [rejectedUserId, rejectedUserChatId] = params;
-                bot.sendMessage(rejectedUserChatId, "❌ သင်၏ ငွေပေးချေမှုကို ငြင်းပယ်လိုက်ပါသည်။");
+                bot.sendMessage(rejectedUserChatId, "❌ သင်၏ ငွေပေးချေမှုကို ငြင်းပယ်လိုက်ပါသည်။ အကြောင်းအရာများသိရှိလိုပါက Admin ကိုဆက်သွယ်ပါ။");
                 bot.editMessageText(`❌ Rejected for ${rejectedUserId}.`, { chat_id: msg.chat.id, message_id: msg.message_id });
                 break;
         }
-    } catch (error) { console.error('Callback Query Error:', error); }
+    } catch (error) {
+        if (error.code !== 'ETELEGRAM' || !error.message.includes('message is not modified')) {
+             console.error('Callback Query Error:', error);
+        }
+    }
 });
 
 async function handleScreenshot(msg, planKey) {
@@ -115,10 +140,7 @@ async function handleScreenshot(msg, planKey) {
     await bot.sendMessage(ADMIN_TELEGRAM_ID, caption, {
         reply_markup: {
             inline_keyboard: [
-                [
-                    { text: "Approve", callback_data: `approve_${userId}_${chatId}_${planKey}` },
-                    { text: "Reject", callback_data: `reject_${userId}_${chatId}` }
-                ]
+                [{ text: "Approve", callback_data: `approve_${userId}_${chatId}_${planKey}` }, { text: "Reject", callback_data: `reject_${userId}_${chatId}` }]
             ]
         }
     });
@@ -137,13 +159,14 @@ async function generateVoucherCode(plan) {
     }
 }
 
+// --- All other backend code (auth, API routes, server start) is unchanged and correct. ---
+
 function authMiddleware(req, res, next) {
     const token = (req.headers.authorization || '').slice(7);
     if (!token) return res.status(401).json({ success: false, message: 'Unauthorized' });
     try { jwt.verify(token, JWT_SECRET); next(); } catch (err) { return res.status(401).json({ success: false, message: 'Invalid token' }); }
 }
 
-// --- API ROUTES ---
 app.post('/api/auth/login', (req, res) => {
     const { username, password } = req.body;
     if (username === ADMIN_USER && password === ADMIN_PASS) {
@@ -198,7 +221,5 @@ app.get('/api/vouchers/stats', authMiddleware, async (req, res) => {
     try { const total = await Voucher.countDocuments(); const used = await Voucher.countDocuments({ is_used: true }); res.json({ success: true, total, used, available: total - used }); } catch (e) { res.status(500).json({ success: false }); }
 });
 
-
-// --- SERVER START ---
 app.get('/*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
