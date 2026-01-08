@@ -94,16 +94,13 @@ bot.on('callback_query', async (callbackQuery) => {
                 const paymentPlanKey = pKeyParts.join('_');
                 const settings = await PaymentSettings.findOne();
                 if (!settings) throw new Error('Payment settings not configured.');
-
                 let paymentDetails = '';
-                
                 if (paymentMethod === 'kpay') {
                     paymentDetails = `ကျေးဇူးပြု၍ အောက်ပါ KPay အကောင့်သို့ *${plans[paymentPlanKey].price.toLocaleString()} MMK* လွှဲပေးပါ။\n\nName: \`${settings.kpay_name}\`\nPhone: \`${settings.kpay_phone}\`\nNote: \`${settings.kpay_note}\`\n\nငွေလွှဲပြီးပါက Screenshot ပို့ပေးပါ။\nငွေလွှဲ Screenshot ကိုစောင့်နေပါတယ်...`;
                 } else {
                     const address = paymentMethod === 'usdt-bep20' ? settings.usdt_bep20_address : settings.usdt_trc20_address;
                     paymentDetails = `ကျေးဇူးပြု၍ အောက်ပါ USDT (${paymentMethod.split('-')[1].toUpperCase()}) လိပ်စာသို့ *${plans[paymentPlanKey].usdt} USDT* လွှဲပေးပါ။\n\nAddress:\n\`${address}\`\n\nငွေလွှဲပြီးပါက Screenshot ပို့ပေးပါ။\nငွေလွှဲ Screenshot ကိုစောင့်နေပါတယ်...`;
                 }
-                
                 await bot.editMessageText(paymentDetails, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '⬅️ Back', callback_data: `plan_${paymentPlanKey}` }]] } });
                 bot.once('photo', (photoMsg) => handleScreenshot(photoMsg, paymentPlanKey));
                 break;
@@ -133,7 +130,6 @@ async function handleScreenshot(msg, planKey) {
     const userId = msg.from.id;
     const userFullName = `${msg.from.first_name} ${msg.from.last_name || ''}`.trim();
     const caption = `New Payment Screenshot for ${plans[planKey].name} from user ${userFullName} (ID: ${userId}).`;
-    
     await bot.forwardMessage(ADMIN_TELEGRAM_ID, chatId, msg.message_id);
     await bot.sendMessage(ADMIN_TELEGRAM_ID, caption, {
         reply_markup: {
@@ -163,7 +159,7 @@ function authMiddleware(req, res, next) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ success: false, message: 'Unauthorized: No token provided' });
     }
-    const token = authHeader.substring(7); // Correctly extract token
+    const token = authHeader.substring(7);
     try {
         jwt.verify(token, JWT_SECRET);
         next();
@@ -172,6 +168,7 @@ function authMiddleware(req, res, next) {
     }
 }
 
+// --- API ROUTES ---
 app.post('/api/auth/login', (req, res) => {
     const { username, password } = req.body;
     if (username === ADMIN_USER && password === ADMIN_PASS) {
@@ -181,7 +178,22 @@ app.post('/api/auth/login', (req, res) => {
     return res.status(401).json({ success: false, message: 'Invalid credentials' });
 });
 
-// --- All other API routes are correct and use the fixed authMiddleware ---
+// THIS IS THE CRITICAL MISSING ENDPOINT FOR THE MOBILE APP
+app.post('/api/vouchers/validate', async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ success: false, message: 'Voucher code is required' });
+    const voucher = await Voucher.findOne({ code: code.toUpperCase() });
+    if (!voucher) return res.json({ success: false, valid: false, message: 'Invalid voucher code' });
+    if (voucher.is_used) return res.json({ success: true, valid: true, used: true, message: 'Voucher code already used' });
+    voucher.is_used = true;
+    voucher.used_at = new Date();
+    await voucher.save();
+    res.json({ success: true, valid: true, used: false, message: 'Voucher code activated successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Database error during validation' });
+  }
+});
 
 app.get('/api/payment-settings', authMiddleware, async (req, res) => {
     try {
