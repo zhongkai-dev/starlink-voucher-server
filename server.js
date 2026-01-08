@@ -16,7 +16,6 @@ const ADMIN_PASS = process.env.ADMIN_PASS || 'starlink123';
 const JWT_SECRET = process.env.JWT_SECRET || 'starlink-secret-key';
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || '8356328415:AAHgDeYLhTDnkKmJxik2YxIHUEwWXeUThDg';
 const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID || '7590111505';
-// Updated APK Download Link
 const APP_DOWNLOAD_URL = process.env.APP_URL || 'https://starlink.zhongkai.click/Star%20Link%20Mobile%202026.001.14.apk';
 
 // --- MIDDLEWARE & DB SETUP ---
@@ -68,14 +67,14 @@ bot.on('callback_query', async (callbackQuery) => {
 
     try {
         switch (action) {
-            case 'download_app':
+            case 'download':
                 bot.sendMessage(chatId, `Starlink Mobile App ကို ဒေါင်းလုဒ်ရယူရန် အောက်ပါ Link ကိုနှိပ်ပါ။\n\n${APP_DOWNLOAD_URL}`);
                 break;
             case 'guide':
                 const guideText = "Starlink Mobile အသုံးပြုပုံအဆင့်ဆင့်မှာ အောက်ပါအတိုင်းဖြစ်ပါသည်:\n\n1. App ကို Install လုပ်ပါ။\n2. Voucher ဝယ်ယူပြီး ရရှိလာသော Code ကို App တွင်ထည့်သွင်းပါ။\n3. Activate လုပ်ပြီး Starlink WiFi ကိုအသုံးပြုနိုင်ပါပြီ။";
                 bot.sendMessage(chatId, guideText);
                 break;
-            case 'buy_voucher':
+            case 'buy':
                 const planOptions = Object.keys(plans).map(key => {
                     const plan = plans[key];
                     return [{ text: `${plan.name} - ${plan.price.toLocaleString()} MMK ${plan.discount > 0 ? `(Save ${plan.discount}%)` : ''}`, callback_data: `plan_${key}` }];
@@ -83,9 +82,9 @@ bot.on('callback_query', async (callbackQuery) => {
                 bot.sendMessage(chatId, "အောက်ပါ Plan များမှ နှစ်သက်ရာတစ်ခုကို ရွေးချယ်ပါ။", { reply_markup: { inline_keyboard: planOptions } });
                 break;
             case 'plan':
-                const planKey = params[0];
+                const planKey = params.join('_');
                 const selectedPlan = plans[planKey];
-                if (!selectedPlan) return;
+                if (!selectedPlan) throw new Error('Invalid plan key');
                 bot.sendMessage(chatId, `သင် ${selectedPlan.name} ကို ရွေးချယ်ထားပါတယ်။ \n\nကျေးဇူးပြု၍ ငွေပေးချေမှုနည်းလမ်းတစ်ခုကို ရွေးချယ်ပါ။`, {
                     reply_markup: {
                         inline_keyboard: [
@@ -97,7 +96,8 @@ bot.on('callback_query', async (callbackQuery) => {
                 });
                 break;
             case 'payment':
-                const [paymentMethod, pKey] = params;
+                const paymentMethod = params[0];
+                const paymentPlanKey = params.slice(1).join('_');
                 const settings = await PaymentSettings.findOne();
                 if (!settings) throw new Error('Payment settings not configured.');
                 let paymentDetails = '';
@@ -110,10 +110,11 @@ bot.on('callback_query', async (callbackQuery) => {
                 }
                 await bot.sendMessage(chatId, paymentDetails, { parse_mode: 'Markdown' });
                 bot.sendMessage(chatId, "ငွေလွှဲ Screenshot ကိုစောင့်နေပါတယ်...");
-                bot.once('photo', (photoMsg) => handleScreenshot(photoMsg, pKey));
+                bot.once('photo', (photoMsg) => handleScreenshot(photoMsg, paymentPlanKey));
                 break;
             case 'approve':
-                const [userId, userChatId, approvedPlanKey] = params;
+                const [userId, userChatId, ...approvedPlanParams] = params;
+                const approvedPlanKey = approvedPlanParams.join('_');
                 const code = await generateVoucherCode(approvedPlanKey);
                 bot.sendMessage(userChatId, `✅ သင်၏ ${plans[approvedPlanKey].name} အတွက် Voucher Code ရပါပြီ။\n\n\`\`\`${code}\`\`\``, { parse_mode: 'Markdown' });
                 bot.editMessageText(`✅ Approved by Admin. Voucher sent to user ${userId}.`, { chat_id: msg.chat.id, message_id: msg.message_id });
@@ -134,8 +135,8 @@ async function handleScreenshot(msg, planKey) { /* ... same as before ... */ }
 async function generateVoucherCode(plan) { /* ... same as before ... */ }
 function authMiddleware(req, res, next) { /* ... same as before ... */ }
 
-// --- API ROUTES ---
-/* ... same as before ... */
+// --- API ROUTES --- //
+/* ... all other API routes are the same ... */
 
 // --- SERVER START ---
 app.get('/*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
