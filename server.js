@@ -198,6 +198,7 @@ app.get('/api/vouchers/stats', authMiddleware, async (req, res) => {
     try { const total = await Voucher.countDocuments(); const used = await Voucher.countDocuments({ is_used: true }); res.json({ success: true, total, used, available: total - used }); } catch (e) { res.status(500).json({ success: false }); }
 });
 
+
 // --- SERVER START ---
 app.get('/*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
