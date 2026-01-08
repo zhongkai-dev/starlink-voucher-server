@@ -9,21 +9,15 @@
 </head>
 <body>
 
-    <!-- Login Page - No longer active by default -->
+    <!-- Login Page -->
     <div id="login-page" class="page">
         <div class="login-container">
             <div class="login-box">
                 <h2>Starlink Mobile</h2>
                 <p>Dashboard Login</p>
                 <form id="login-form">
-                    <div class="input-group">
-                        <input type="text" id="username" required>
-                        <label for="username">Username</label>
-                    </div>
-                    <div class="input-group">
-                        <input type="password" id="password" required>
-                        <label for="password">Password</label>
-                    </div>
+                    <div class="input-group"><input type="text" id="username" required><label for="username">Username</label></div>
+                    <div class="input-group"><input type="password" id="password" required><label for="password">Password</label></div>
                     <button type="submit" class="login-button">Login</button>
                     <p id="login-error" class="error-message"></p>
                 </form>
@@ -31,44 +25,53 @@
         </div>
     </div>
 
-    <!-- Main Dashboard -->
-    <div id="dashboard-page" class="page">
+    <!-- Main Application -->
+    <div id="app-page" class="page">
         <div class="sidebar">
-            <div class="sidebar-header">
-                <h3>Starlink Mobile</h3>
-            </div>
+            <div class="sidebar-header"><h3>Starlink Mobile</h3></div>
             <ul class="sidebar-menu">
-                <li class="active"><a href="#">Dashboard</a></li>
-                <li><a href="#">Users</a></li>
-                <li><a href="#">Vouchers</a></li>
-                <li><a href="#">Settings</a></li>
+                <li data-page="dashboard-content" class="active"><a href="#">Dashboard</a></li>
+                <li data-page="vouchers-content"><a href="#">Vouchers</a></li>
+                <li data-page="payments-content"><a href="#">Payments</a></li>
                 <li><a href="#" id="logout-btn">Logout</a></li>
             </ul>
         </div>
         <div class="main-content">
-            <header>
-                <h2>Dashboard Overview</h2>
-            </header>
-            <div class="card-container">
-                <div class="card">
-                    <h4>Total Users</h4>
-                    <p>1,482</p>
+            <!-- Dashboard Content -->
+            <div id="dashboard-content" class="content-page active">
+                <header><h2>Dashboard Overview</h2></header>
+                <div class="card-container">
+                    <div class="card"><h4 id="total-users-label">Total Payments</h4><p id="total-users">-</p></div>
+                    <div class="card"><h4>Vouchers Used</h4><p id="vouchers-used">-</p></div>
+                    <div class="card"><h4>Vouchers Available</h4><p id="vouchers-available">-</p></div>
+                    <div class="card"><h4>Total Revenue</h4><p id="total-revenue">-</p></div>
                 </div>
-                <div class="card">
-                    <h4>Vouchers Used</h4>
-                    <p>971</p>
-                </div>
-                <div class="card">
-                    <h4>Online Devices</h4>
-                    <p>312</p>
-                </div>
-                 <div class="card">
-                    <h4>Revenue</h4>
-                    <p>$9,700.29</p>
+                <div class="chart-container"><canvas id="revenue-chart"></canvas></div>
+            </div>
+
+            <!-- Vouchers Content -->
+            <div id="vouchers-content" class="content-page">
+                <header>
+                    <h2>Voucher Management</h2>
+                    <button id="generate-vouchers-btn" class="action-button">Generate Vouchers</button>
+                </header>
+                <div class="table-container">
+                    <table id="vouchers-table">
+                        <thead><tr><th>Code</th><th>Status</th><th>Created At</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
                 </div>
             </div>
-            <div class="chart-container">
-                 <canvas id="revenue-chart"></canvas>
+
+            <!-- Payments Content -->
+            <div id="payments-content" class="content-page">
+                <header><h2>Payment Details</h2></header>
+                <div class="table-container">
+                    <table id="payments-table">
+                        <thead><tr><th>Date</th><th>Name</th><th>Amount</th><th>Plan</th><th>Card</th><th>Country</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
