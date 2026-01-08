@@ -1,0 +1,245 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
+
+body {
+    font-family: 'Montserrat', sans-serif;
+    margin: 0;
+    background-color: #111827; /* Dark background */
+    color: #F3F4F6; /* Light text */
+    display: flex;
+}
+
+.page {
+    display: none;
+    width: 100vw;
+    height: 100vh;
+}
+
+.page.active {
+    display: flex;
+}
+
+/* --- Login Page Styles --- */
+#login-page {
+    justify-content: center;
+    align-items: center;
+}
+
+.login-container {
+    perspective: 1000px;
+}
+
+.login-box {
+    background-color: #1F2937; /* Slightly lighter dark */
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    text-align: center;
+    width: 350px;
+    transition: transform 0.5s;
+}
+
+.login-box:hover {
+    transform: translateY(-5px);
+}
+
+.login-box h2 {
+    font-weight: 700;
+    font-size: 24px;
+    margin-bottom: 5px;
+}
+
+.login-box p {
+    font-size: 14px;
+    color: #9CA3AF; /* Muted text */
+    margin-bottom: 30px;
+}
+
+.input-group {
+    position: relative;
+    margin-bottom: 25px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 10px 0;
+    background: none;
+    border: none;
+    border-bottom: 2px solid #4B5563; /* Gray border */
+    color: #F3F4F6;
+    font-size: 16px;
+    outline: none;
+}
+
+.input-group label {
+    position: absolute;
+    top: 10px;
+    left: 0;
+    color: #9CA3AF;
+    font-size: 16px;
+    pointer-events: none;
+    transition: 0.3s;
+}
+
+.input-group input:focus + label,
+.input-group input:valid + label {
+    top: -15px;
+    left: 0;
+    font-size: 12px;
+    color: #60A5FA; /* Blue focus color */
+}
+
+.login-button {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(to right, #3B82F6, #60A5FA);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-weight: 600;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background 0.3s, box-shadow 0.3s;
+}
+
+.login-button:hover {
+    box-shadow: 0 5px 15px rgba(96, 165, 250, 0.4);
+}
+
+.error-message {
+    color: #F87171; /* Red error color */
+    font-size: 12px;
+    margin-top: 15px;
+    height: 15px; /* Reserve space */
+}
+
+
+/* --- Dashboard Styles --- */
+.sidebar {
+    width: 250px;
+    background-color: #1F2937;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #374151;
+}
+
+.sidebar-header {
+    padding: 20px;
+    text-align: center;
+    border-bottom: 1px solid #374151;
+}
+
+.sidebar-header h3 {
+    margin: 0;
+    font-size: 20px;
+}
+
+.sidebar-menu {
+    list-style: none;
+    padding: 20px 0;
+    margin: 0;
+}
+
+.sidebar-menu li a {
+    display: block;
+    padding: 15px 20px;
+    color: #D1D5DB;
+    text-decoration: none;
+    font-weight: 600;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.sidebar-menu li.active a, .sidebar-menu li a:hover {
+    background-color: #374151;
+    color: #FFFFFF;
+}
+
+.main-content {
+    flex-grow: 1;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.main-content header h2 {
+    margin: 0 0 20px 0;
+    font-size: 28px;
+}
+
+.card-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.card {
+    background-color: #1F2937;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.card h4 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: #9CA3AF;
+}
+
+.card p {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+}
+
+.chart-container {
+    margin-top: 30px;
+    background-color: #1F2937;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+
+/* --- Responsive Design --- */
+@media (max-width: 768px) {
+    body, .page.active {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        height: auto;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .sidebar-header {
+        border-bottom: none;
+        padding: 15px;
+    }
+    
+    .sidebar-menu {
+        display: flex;
+        padding: 0;
+    }
+
+    .sidebar-menu li a {
+        padding: 15px;
+    }
+
+    .main-content {
+        padding: 15px;
+    }
+
+    .main-content header h2 {
+        font-size: 22px;
+    }
+
+    .card p {
+        font-size: 22px;
+    }
+}
+
+@media (max-width: 480px) {
+    .login-box {
+        width: 90%;
+        padding: 30px;
+    }
+}
