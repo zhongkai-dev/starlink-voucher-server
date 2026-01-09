@@ -37,3 +37,35 @@ const PaymentSettings = mongoose.model('PaymentSettings', paymentSettingsSchema)
 
 // --- TELEGRAM BOT LOGIC ---
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
+
+bot.on('message', (msg) => {
+    const chatId = msg.chat.id;
+
+    if (msg.text.toString().toLowerCase().includes("start")) {
+        bot.sendMessage(chatId, "Welcome to the Star Link Bot!", {
+            "reply_markup": {
+                "keyboard": [["Download App", "User Guide"], ["Buy Voucher"], ["Admin နဲ့ဆက်သွယ်ရန်"]]
+                }
+            });
+    } else if (msg.text.toString().toLowerCase().includes("download app")) {
+        bot.sendMessage(chatId, "Click the button below to download the app.", {
+            "reply_markup": {
+                "inline_keyboard": [
+                    [
+                        { "text": "Download for Android", "url": "https://www.mediafire.com/file/r5ovja8ey6y0uwj/Star+Link+Mobile.apk/file" }
+                    ]
+                ]
+            }
+        });
+    } else if (msg.text.toString() === "Admin နဲ့ဆက်သွယ်ရန်") {
+        bot.sendMessage(chatId, "Click the button below to contact the admin.", {
+            "reply_markup": {
+                "inline_keyboard": [
+                    [
+                        { "text": "Contact Admin", "url": "https://t.me/starlinkmmbot" }
+                    ]
+                ]
+            }
+        });
+    }
+});
