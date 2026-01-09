@@ -33,7 +33,7 @@ const Voucher = mongoose.model('Voucher', voucherSchema);
 const User = mongoose.model('User', userSchema);
 const PaymentSettings = mongoose.model('PaymentSettings', paymentSettingsSchema);
 
-// --- TELEGRAM BOT LOGIC (DEFINITIVE VERSION) ---
+// --- TELEGRAM BOT LOGIC ---
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
 const plans = {
@@ -96,7 +96,6 @@ bot.on('callback_query', async (callbackQuery) => {
                 if (!settings) throw new Error('Payment settings not configured.');
 
                 let paymentDetails = '';
-
                 if (paymentMethod === 'kpay') {
                     paymentDetails = `ကျေးဇူးပြု၍ အောက်ပါ KPay အကောင့်သို့ *${plans[paymentPlanKey].price.toLocaleString()} MMK* လွှဲပေးပါ။\n\nName: \`${settings.kpay_name}\`\nPhone: \`${settings.kpay_phone}\`\nNote: \`${settings.kpay_note}\`\n\nငွေလွှဲပြီးပါက Screenshot ပို့ပေးပါ။\nငွေလွှဲ Screenshot ကိုစောင့်နေပါတယ်...`;
                 } else {
@@ -133,7 +132,6 @@ async function handleScreenshot(msg, planKey) {
     const userId = msg.from.id;
     const userFullName = `${msg.from.first_name} ${msg.from.last_name || ''}`.trim();
     const caption = `New Payment Screenshot for ${plans[planKey].name} from user ${userFullName} (ID: ${userId}).`;
-    
     await bot.forwardMessage(ADMIN_TELEGRAM_ID, chatId, msg.message_id);
     await bot.sendMessage(ADMIN_TELEGRAM_ID, caption, {
         reply_markup: {
@@ -186,18 +184,10 @@ app.post('/api/auth/login', (req, res) => {
 app.post('/api/vouchers/validate', async (req, res) => {
   try {
     const { code } = req.body;
-    if (!code) {
-        return res.status(400).json({ success: false, message: 'Voucher code is required' });
-    }
+    if (!code) return res.status(400).json({ success: false, message: 'Voucher code is required' });
     const voucher = await Voucher.findOne({ code: code.toUpperCase() });
-
-    if (!voucher) {
-        return res.json({ success: false, valid: false, message: 'Invalid voucher code' });
-    }
-    if (voucher.is_used) {
-        return res.json({ success: true, valid: true, used: true, message: 'Voucher code already used' });
-    }
-    
+    if (!voucher) return res.json({ success: false, valid: false, message: 'Invalid voucher code' });
+    if (voucher.is_used) return res.json({ success: true, valid: true, used: true, message: 'Voucher code already used' });
     voucher.is_used = true;
     voucher.used_at = new Date();
     await voucher.save();
@@ -213,7 +203,6 @@ app.post('/api/vouchers/generate', authMiddleware, async (req, res) => {
   try {
     const count = req.body.count || 1;
     for (let i = 0; i < count; i++) {
-        // We don't need a try/catch here because the main one will handle it
         await new Voucher({ code: generateVoucherCode() }).save();
     }
     return res.json({ success: true, message: `${count} vouchers generated.` });
@@ -259,18 +248,17 @@ app.get('/api/vouchers', authMiddleware, async (req, res) => {
 app.delete('/api/vouchers/:id', authMiddleware, async (req, res) => {
     try {
         await Voucher.findByIdAndDelete(req.params.id);
-        return res.json({ success: true, message: 'Voucher deleted.' });
+        return res.status(204).send();
     } catch(e) {
         console.error("Delete Voucher Error:", e);
         return res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
-// ** ROBUST DELETE ENDPOINT **
 app.delete('/api/vouchers/clear', authMiddleware, async (req, res) => {
     try {
         await Voucher.deleteMany({});
-        return res.status(200).json({ success: true, message: 'All vouchers cleared.' });
+        return res.status(204).send();
     } catch(e) {
         console.error("Error clearing vouchers:", e);
         return res.status(500).json({ success: false, message: 'Server error while clearing vouchers.' });
@@ -290,18 +278,17 @@ app.get('/api/users', authMiddleware, async (req, res) => {
 app.delete('/api/users/:id', authMiddleware, async (req, res) => {
     try {
         await User.findByIdAndDelete(req.params.id);
-        return res.json({ success: true, message: 'Payment deleted.' });
+        return res.status(204).send();
     } catch(e) {
         console.error("Delete User Error:", e);
         return res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
-// ** ROBUST DELETE ENDPOINT **
 app.delete('/api/users/clear', authMiddleware, async (req, res) => {
     try {
         await User.deleteMany({});
-        return res.status(200).json({ success: true, message: 'All payments cleared.' });
+        return res.status(204).send();
     } catch(e) {
         console.error("Error clearing users/payments:", e);
         return res.status(500).json({ success: false, message: 'Server error while clearing payments.' });
@@ -323,4 +310,5 @@ app.get('/api/vouchers/stats', authMiddleware, async (req, res) => {
 app.get('/*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
