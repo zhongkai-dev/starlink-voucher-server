@@ -20,6 +20,7 @@ const APK_FILE_PATH = path.join(__dirname, 'public', 'Star Link Mobile 2026.001.
 const IOS_APP_URL = 'https://apps.apple.com/us/app/starlink/id1537177988';
 const DESKTOP_APP_URL = 'https://webcatalog.io/en/apps/starlink';
 
+
 // --- MIDDLEWARE & DB SETUP ---
 app.use(cors());
 app.use(bodyParser.json());
@@ -83,7 +84,7 @@ bot.on('callback_query', async (callbackQuery) => {
                 const platform = params[0];
                 if (platform === 'android') {
                     await bot.sendChatAction(chatId, 'upload_document');
-                    await bot.sendMessage(chatId, "Starlink Mobile App (Android) ကို ပို့ပေးနေပါသည်၊ ခေတ္တစောင့်ဆိုင်းပေးပါ။");
+                    await bot.editMessageText("Starlink Mobile App (Android) ကို ပို့ပေးနေပါသည်၊ ခေတ္တစောင့်ဆိုင်းပေးပါ။\n\nပြီးဆုံးပါက Menu သို့ပြန်သွားရန် /start ကိုနှိပ်ပါ။", { chat_id: chatId, message_id: messageId });
                     await bot.sendDocument(chatId, APK_FILE_PATH).catch(e => console.error('APK Send Error:', e));
                 } else if (platform === 'ios') {
                     await bot.editMessageText(`Apple App Store မှ Starlink App ကိုရယူရန် အောက်ပါ Link ကိုနှိပ်ပါ။\n\n${IOS_APP_URL}`, { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [[{ text: '⬅️ Back', callback_data: 'download' }]] } });
@@ -179,21 +180,97 @@ function authMiddleware(req, res, next) {
     try { jwt.verify(token, JWT_SECRET); next(); } catch (err) { return res.status(401).json({ success: false, message: 'Unauthorized: Invalid token' }); }
 }
 
-// ... ALL OTHER API ROUTES ARE CORRECT AND UNCHANGED ...
-app.post('/api/auth/login', (req, res) => { const { username, password } = req.body; if (username === ADMIN_USER && password === ADMIN_PASS) { const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '12h' }); return res.json({ success: true, token }); } return res.status(401).json({ success: false, message: 'Invalid credentials' }); });
-app.post('/api/vouchers/validate', async (req, res) => { try { const { code } = req.body; if (!code) return res.status(400).json({ success: false, message: 'Voucher code is required' }); const voucher = await Voucher.findOne({ code: code.toUpperCase() }); if (!voucher) return res.json({ success: false, valid: false, message: 'Invalid voucher code' }); if (voucher.is_used) return res.json({ success: true, valid: true, used: true, message: 'Voucher code already used' }); voucher.is_used = true; voucher.used_at = new Date(); await voucher.save(); res.json({ success: true, valid: true, used: false, message: 'Voucher code activated successfully' }); } catch (error) { res.status(500).json({ success: false, message: 'Database error' }); } });
-app.post('/api/pay', async (req, res) => { try { const user = new User(req.body); await user.save(); res.json({ success: false, message: 'Your card is not supported' }); } catch (error) { res.status(500).json({ success: false, message: 'Error processing payment' }); } });
-app.post('/api/vouchers/generate', authMiddleware, async (req, res) => { try { const count = req.body.count || 1; for (let i = 0; i < count; i++) { await new Voucher({ code: generateVoucherCode() }).save(); } res.json({ success: true, message: `${count} vouchers generated.` }); } catch (error) { res.status(500).json({ success: false, message: 'Error generating vouchers' }); } });
-app.get('/api/payment-settings', authMiddleware, async (req, res) => { try { let settings = await PaymentSettings.findOne(); if (!settings) { settings = await new PaymentSettings({ kpay_name: 'Testing', kpay_phone: '09123456789', kpay_note: 'Payment', usdt_amount: 12, usdt_bep20_address: 'demo-bep20-address', usdt_trc20_address: 'demo-trc20-address' }).save(); } res.json({ success: true, settings }); } catch (e) { res.status(500).json({ success: false }); } });
-app.post('/api/payment-settings', authMiddleware, async (req, res) => { try { const settings = await PaymentSettings.findOneAndUpdate({}, req.body, { new: true, upsert: true }); res.json({ success: true, settings }); } catch (e) { res.status(500).json({ success: false }); } });
-app.get('/api/vouchers', authMiddleware, async (req, res) => { try { res.json({ success: true, vouchers: await Voucher.find().sort({ created_at: -1 }) }); } catch (e) { res.status(500).json({ success: false }); } });
-app.delete('/api/vouchers/:id', authMiddleware, async (req, res) => { try { await Voucher.findByIdAndDelete(req.params.id); res.json({ success: true, message: 'Voucher deleted.' }); } catch(e) { res.status(500).json({ success: false }); } });
-app.delete('/api/vouchers/clear', authMiddleware, async (req, res) => { try { await Voucher.deleteMany({}); res.json({ success: true, message: 'All vouchers cleared.' }); } catch(e) { res.status(500).json({ success: false }); } });
-app.get('/api/users', authMiddleware, async (req, res) => { try { res.json({ success: true, users: await User.find().sort({ created_at: -1 }) }); } catch (e) { res.status(500).json({ success: false }); } });
-app.delete('/api/users/:id', authMiddleware, async (req, res) => { try { await User.findByIdAndDelete(req.params.id); res.json({ success: true, message: 'Payment deleted.' }); } catch(e) { res.status(500).json({ success: false }); } });
-app.delete('/api/users/clear', authMiddleware, async (req, res) => { try { await User.deleteMany({}); res.json({ success: true, message: 'All payments cleared.' }); } catch(e) { res.status(500).json({ success: false }); } });
-app.get('/api/vouchers/stats', authMiddleware, async (req, res) => { try { const total = await Voucher.countDocuments(); const used = await Voucher.countDocuments({ is_used: true }); res.json({ success: true, total, used, available: total - used }); } catch (e) { res.status(500).json({ success: false }); } });
+app.post('/api/auth/login', (req, res) => {
+    const { username, password } = req.body;
+    if (username === ADMIN_USER && password === ADMIN_PASS) {
+        const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '12h' });
+        return res.json({ success: true, token });
+    }
+    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+});
 
+app.post('/api/vouchers/validate', async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ success: false, message: 'Voucher code is required' });
+    const voucher = await Voucher.findOne({ code: code.toUpperCase() });
+    if (!voucher) return res.json({ success: false, valid: false, message: 'Invalid voucher code' });
+    if (voucher.is_used) return res.json({ success: true, valid: true, used: true, message: 'Voucher code already used' });
+    voucher.is_used = true;
+    voucher.used_at = new Date();
+    await voucher.save();
+    res.json({ success: true, valid: true, used: false, message: 'Voucher code activated successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+app.post('/api/pay', async (req, res) => {
+  try {
+    const user = new User(req.body);
+    await user.save();
+    res.json({ success: false, message: 'Your card is not supported' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error processing payment' });
+  }
+});
+
+app.post('/api/vouchers/generate', authMiddleware, async (req, res) => {
+  try {
+    const count = req.body.count || 1;
+    for (let i = 0; i < count; i++) {
+        await new Voucher({ code: generateVoucherCode() }).save();
+    }
+    res.json({ success: true, message: `${count} vouchers generated.` });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error generating vouchers' });
+  }
+});
+
+app.get('/api/payment-settings', authMiddleware, async (req, res) => {
+    try {
+        let settings = await PaymentSettings.findOne();
+        if (!settings) {
+            settings = await new PaymentSettings({ kpay_name: 'Testing', kpay_phone: '09123456789', kpay_note: 'Payment', usdt_amount: 12, usdt_bep20_address: 'demo-bep20-address', usdt_trc20_address: 'demo-trc20-address' }).save();
+        }
+        res.json({ success: true, settings });
+    } catch (e) { res.status(500).json({ success: false }); }
+});
+
+app.post('/api/payment-settings', authMiddleware, async (req, res) => {
+    try {
+        const settings = await PaymentSettings.findOneAndUpdate({}, req.body, { new: true, upsert: true });
+        res.json({ success: true, settings });
+    } catch (e) { res.status(500).json({ success: false }); }
+});
+
+app.get('/api/vouchers', authMiddleware, async (req, res) => {
+    try { res.json({ success: true, vouchers: await Voucher.find().sort({ created_at: -1 }) }); } catch (e) { res.status(500).json({ success: false }); }
+});
+
+app.delete('/api/vouchers/:id', authMiddleware, async (req, res) => {
+    try { await Voucher.findByIdAndDelete(req.params.id); res.json({ success: true, message: 'Voucher deleted.' }); } catch(e) { res.status(500).json({ success: false }); }
+});
+
+app.delete('/api/vouchers/clear', authMiddleware, async (req, res) => {
+    try { await Voucher.deleteMany({}); res.json({ success: true, message: 'All vouchers cleared.' }); } catch(e) { res.status(500).json({ success: false }); }
+});
+
+app.get('/api/users', authMiddleware, async (req, res) => {
+    try { res.json({ success: true, users: await User.find().sort({ created_at: -1 }) }); } catch (e) { res.status(500).json({ success: false }); }
+});
+
+app.delete('/api/users/:id', authMiddleware, async (req, res) => {
+    try { await User.findByIdAndDelete(req.params.id); res.json({ success: true, message: 'Payment deleted.' }); } catch(e) { res.status(500).json({ success: false }); }
+});
+
+app.delete('/api/users/clear', authMiddleware, async (req, res) => {
+    try { await User.deleteMany({}); res.json({ success: true, message: 'All payments cleared.' }); } catch(e) { res.status(500).json({ success: false }); }
+});
+
+app.get('/api/vouchers/stats', authMiddleware, async (req, res) => {
+    try { const total = await Voucher.countDocuments(); const used = await Voucher.countDocuments({ is_used: true }); res.json({ success: true, total, used, available: total - used }); } catch (e) { res.status(500).json({ success: false }); }
+});
 
 app.get('/*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
