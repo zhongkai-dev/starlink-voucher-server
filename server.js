@@ -45,15 +45,7 @@ const plans = {
 
 const mainMenu = {
     text: "🇲🇲 Starlink Mobile မှကြိုဆိုပါတယ်။\n\nအောက်ပါ Menu မှတဆင့် ဝန်ဆောင်မှုများကို ရွေးချယ်နိုင်ပါပြီ။",
-    options: {
-        reply_markup: {
-            inline_keyboard: [
-                [{ text: "App ဒေါင်းလုဒ်ရယူရန်", callback_data: 'download' }],
-                [{ text: "အသုံးပြုပုံလမ်းညွှန်", callback_data: 'guide' }],
-                [{ text: "Voucher ဝယ်ရန်", callback_data: 'buy' }]
-            ]
-        }
-    }
+    options: { reply_markup: { inline_keyboard: [[{ text: "App ဒေါင်းလုဒ်ရယူရန်", callback_data: 'download' }], [{ text: "အသုံးပြုပုံလမ်းညွှန်", callback_data: 'guide' }], [{ text: "Voucher ဝယ်ရန်", callback_data: 'buy' }]] } }
 };
 
 bot.onText(/\/start/, (msg) => {
@@ -78,8 +70,8 @@ bot.on('callback_query', async (callbackQuery) => {
                 await bot.sendDocument(chatId, APK_FILE_PATH).catch(e => console.error('APK Send Error:', e));
                 break;
             case 'guide':
-                const guideText = "Starlink Mobile အသုံးပြုပုံအဆင့်ဆင့်မှာ အောက်ပါအတိုင်းဖြစ်ပါသည်:\n\n1. App ကို Install လုပ်ပါ။\n2. Voucher ဝယ်ယူပြီး ရရှိလာသော Code ကို App တွင်ထည့်သွင်းပါ။\n3. Activate လုပ်ပြီး Starlink WiFi ကိုအသုံးပြုနိုင်ပါပြီ။";
-                await bot.editMessageText(guideText, { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [[{ text: '⬅️ Back to Main Menu', callback_data: 'start' }]] } });
+                const guideText = "⭐ **Starlink Mobile အသုံးပြုရန် အသေးစိတ်လမ်းညွှန်** ⭐\n\n**အဆင့် (၁) - Voucher ဝယ်ယူခြင်း**\n1. ဒီ Telegram Bot မှ 'Voucher ဝယ်ရန်' ခလုတ်ကိုနှိပ်ပါ။\n2. သင်အသုံးပြုလိုသော လစဉ် Package (1 Month, 3 Months, etc.) ကိုရွေးချယ်ပါ။\n3. သင်အဆင်ပြေသော ငွေပေးချေမှုနည်းလမ်း (KBZ Pay, USDT) ကိုရွေးချယ်ပါ။\n\n---\n\n**အဆင့် (၂) - ငွေပေးချေခြင်း**\n1. Bot မှပြသသော ငွေပေးချေမှုအချက်အလက်များ (KBZ Pay အကောင့် သို့မဟုတ် USDT လိပ်စာ) သို့ သတ်မှတ်ထားသော ငွေပမာဏကို အတိအကျလွှဲပါ။\n2. ငွေလွှဲပြီးစီးကြောင်း Screenshot ကိုရိုက်ပြီး ဒီ Bot သို့ ချက်ချင်းပြန်ပို့ပါ။\n\n---\n\n**အဆင့် (၃) - Code လက်ခံခြင်း**\n1. သင်၏ ငွေလွှဲ Screenshot ကို Admin မှ စစ်ဆေးပြီး အတည်ပြု (Approve) လုပ်ပေးပါမည်။\n2. အတည်ပြုပြီးပါက Bot မှတစ်ဆင့် သင်၏ လျှို့ဝှက် Voucher Code ကို အလိုအလျောက် ပို့ပေးပါမည်။\n\n---\n\n**အဆင့် (၄) - App ကို Activate လုပ်ခြင်း**\n1. ဒီ Bot မှ 'App ဒေါင်းလုဒ်ရယူရန်' ခလုတ်ကိုနှိပ်ပြီး App ကို Install လုပ်ပါ။\n2. App ကိုဖွင့်ပြီး 'Get Started' ကိုနှိပ်ပါ။\n3. Bot မှရရှိသော Voucher Code ကို Copy ကူးပြီး App ထဲတွင် Paste လုပ်ကာ 'Activate' ကိုနှိပ်ပါ။\n\n---\n\nပြီးပါပြီ။ သင်၏ Starlink Mobile ဝန်ဆောင်မှုကို ယခုအသုံးပြုနိုင်ပါပြီ။";
+                await bot.editMessageText(guideText, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '⬅️ Back to Main Menu', callback_data: 'start' }]] } });
                 break;
             case 'buy':
                 const planOptions = Object.keys(plans).map(key => ([{ text: `${plans[key].name} - ${plans[key].price.toLocaleString()} MMK`, callback_data: `plan_${key}` }]));
@@ -88,7 +80,7 @@ bot.on('callback_query', async (callbackQuery) => {
             case 'plan':
                 const planKey = params.join('_');
                 if (!plans[planKey]) return;
-                await bot.editMessageText(`သင် ${plans[planKey].name} ကို ရွေးချယ်ထားပါတယ်။ \n\nကျေးဇူးပြု၍ ငွေပေးချေမှုနည်းလမ်းတစ်ခုကို ရွေးချယ်ပါ။`, { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [[{ text: "KPay", callback_data: `payment_kpay_${planKey}` }], [{ text: "USDT (BEP20)", callback_data: `payment_usdt-bep20_${planKey}` }], [{ text: "USDT (TRC20)", callback_data: `payment_usdt-trc20_${planKey}` }], [{ text: '⬅️ Back', callback_data: 'buy' }]] } });
+                await bot.editMessageText(`သင် ${plans[planKey].name} ကို ရွေးချယ်ထားပါတယ်။ \n\nကျေးဇူးပြု၍ ငွေပေးချေမှုနည်းလမ်းတစ်ခုကို ရွေးချယ်ပါ။`, { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [[{ text: "KBZ Pay", callback_data: `payment_kpay_${planKey}` }], [{ text: "USDT (BEP20)", callback_data: `payment_usdt-bep20_${planKey}` }], [{ text: "USDT (TRC20)", callback_data: `payment_usdt-trc20_${planKey}` }], [{ text: '⬅️ Back', callback_data: 'buy' }]] } });
                 break;
             case 'payment':
                 const [paymentMethod, ...pKeyParts] = params;
@@ -96,14 +88,12 @@ bot.on('callback_query', async (callbackQuery) => {
                 const settings = await PaymentSettings.findOne();
                 if (!settings) throw new Error('Payment settings not configured.');
                 let paymentDetails = '';
-
                 if (paymentMethod === 'kpay') {
-                    paymentDetails = `ကျေးဇူးပြု၍ အောက်ပါ KPay အကောင့်သို့ *${plans[paymentPlanKey].price.toLocaleString()} MMK* လွှဲပေးပါ။\n\nName: \`${settings.kpay_name}\`\nPhone: \`${settings.kpay_phone}\`\nNote: \`${settings.kpay_note}\`\n\nငွေလွှဲပြီးပါက Screenshot ပို့ပေးပါ။\nငွေလွှဲ Screenshot ကိုစောင့်နေပါတယ်...`;
+                    paymentDetails = `ကျေးဇူးပြု၍ အောက်ပါ KBZ Pay အကောင့်သို့ *${plans[paymentPlanKey].price.toLocaleString()} MMK* လွှဲပေးပါ။\n\nName: \`${settings.kpay_name}\`\nPhone: \`${settings.kpay_phone}\`\nNote: \`${settings.kpay_note}\`\n\nငွေလွှဲပြီးပါက Screenshot ပို့ပေးပါ။\nငွေလွှဲ Screenshot ကိုစောင့်နေပါတယ်...`;
                 } else {
                     const address = paymentMethod === 'usdt-bep20' ? settings.usdt_bep20_address : settings.usdt_trc20_address;
                     paymentDetails = `ကျေးဇူးပြု၍ အောက်ပါ USDT (${paymentMethod.split('-')[1].toUpperCase()}) လိပ်စာသို့ *${plans[paymentPlanKey].usdt} USDT* လွှဲပေးပါ။\n\nAddress:\n\`${address}\`\n\nငွေလွှဲပြီးပါက Screenshot ပို့ပေးပါ။\nငွေလွှဲ Screenshot ကိုစောင့်နေပါတယ်...`;
                 }
-                
                 await bot.editMessageText(paymentDetails, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '⬅️ Back', callback_data: `plan_${paymentPlanKey}` }]] } });
                 bot.once('photo', (photoMsg) => handleScreenshot(photoMsg, paymentPlanKey));
                 break;
@@ -127,6 +117,8 @@ bot.on('callback_query', async (callbackQuery) => {
         }
     }
 });
+
+// ... The rest of the file is correct and does not need to be changed.
 
 async function handleScreenshot(msg, planKey) {
     const chatId = msg.chat.id;
@@ -162,12 +154,7 @@ function authMiddleware(req, res, next) {
         return res.status(401).json({ success: false, message: 'Unauthorized: No token provided' });
     }
     const token = authHeader.substring(7);
-    try {
-        jwt.verify(token, JWT_SECRET);
-        next();
-    } catch (err) {
-        return res.status(401).json({ success: false, message: 'Unauthorized: Invalid token' });
-    }
+    try { jwt.verify(token, JWT_SECRET); next(); } catch (err) { return res.status(401).json({ success: false, message: 'Unauthorized: Invalid token' }); }
 }
 
 app.post('/api/auth/login', (req, res) => {
@@ -191,7 +178,7 @@ app.post('/api/vouchers/validate', async (req, res) => {
     await voucher.save();
     res.json({ success: true, valid: true, used: false, message: 'Voucher code activated successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Database error during validation' });
+    res.status(500).json({ success: false, message: 'Database error' });
   }
 });
 
