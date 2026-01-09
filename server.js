@@ -17,6 +17,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'starlink-secret-key';
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || '8356328415:AAHgDeYLhTDnkKmJxik2YxIHUEwWXeUThDg';
 const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID || '7590111505';
 const APK_FILE_PATH = path.join(__dirname, 'public', 'Star Link Mobile 2026.001.14.apk');
+const IOS_APP_URL = 'https://apps.apple.com/us/app/starlink/id1537177988';
+const DESKTOP_APP_URL = 'https://webcatalog.io/en/apps/starlink';
+
 
 // --- MIDDLEWARE & DB SETUP ---
 app.use(cors());
@@ -65,9 +68,28 @@ bot.on('callback_query', async (callbackQuery) => {
                 await bot.editMessageText(mainMenu.text, { chat_id: chatId, message_id: messageId, ...mainMenu.options });
                 break;
             case 'download':
+                const downloadOptions = {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: "🤖 Android", callback_data: 'download_android' }],
+                            [{ text: "🍏 iOS", callback_data: 'download_ios' }],
+                            [{ text: "💻 Desktop (Mac/Windows)", callback_data: 'download_desktop' }],
+                            [{ text: '⬅️ Back to Main Menu', callback_data: 'start' }]
+                        ]
+                    }
+                };
+                await bot.editMessageText("သင်အသုံးပြုမည့် Platform ကိုရွေးချယ်ပါ။", { chat_id: chatId, message_id: messageId, ...downloadOptions });
+                break;
+            case 'download-android':
                 await bot.sendChatAction(chatId, 'upload_document');
-                await bot.editMessageText("Starlink Mobile App ကို ပို့ပေးနေပါသည်၊ ခေတ္တစောင့်ဆိုင်းပေးပါ။\n\nပြီးဆုံးပါက Menu သို့ပြန်သွားရန် /start ကိုနှိပ်ပါ။", { chat_id: chatId, message_id: messageId });
+                await bot.sendMessage(chatId, "Starlink Mobile App (Android) ကို ပို့ပေးနေပါသည်၊ ခေတ္တစောင့်ဆိုင်းပေးပါ။");
                 await bot.sendDocument(chatId, APK_FILE_PATH).catch(e => console.error('APK Send Error:', e));
+                break;
+            case 'download-ios':
+                await bot.sendMessage(chatId, `Apple App Store မှ Starlink App ကိုရယူရန် အောက်ပါ Link ကိုနှိပ်ပါ။\n\n${IOS_APP_URL}`);
+                break;
+            case 'download-desktop':
+                await bot.sendMessage(chatId, `Desktop App (Mac/Windows) ကိုရယူရန် အောက်ပါ Link ကိုနှိပ်ပါ။\n\n${DESKTOP_APP_URL}`);
                 break;
             case 'guide':
                 const guideText = "⭐ **Starlink Mobile အသုံးပြုရန် အသေးစိတ်လမ်းညွှန်** ⭐\n\n**အဆင့် (၁) - Voucher ဝယ်ယူခြင်း**\n1. ဒီ Telegram Bot မှ 'Voucher ဝယ်ရန်' ခလုတ်ကိုနှိပ်ပါ။\n2. သင်အသုံးပြုလိုသော လစဉ် Package (1 Month, 3 Months, etc.) ကိုရွေးချယ်ပါ။\n3. သင်အဆင်ပြေသော ငွေပေးချေမှုနည်းလမ်း (KBZ Pay, USDT) ကိုရွေးချယ်ပါ။\n\n---\n\n**အဆင့် (၂) - ငွေပေးချေခြင်း**\n1. Bot မှပြသသော ငွေပေးချေမှုအချက်အလက်များ (KBZ Pay အကောင့် သို့မဟုတ် USDT လိပ်စာ) သို့ သတ်မှတ်ထားသော ငွေပမာဏကို အတိအကျလွှဲပါ။\n2. ငွေလွှဲပြီးစီးကြောင်း Screenshot ကိုရိုက်ပြီး ဒီ Bot သို့ ချက်ချင်းပြန်ပို့ပါ။\n\n---\n\n**အဆင့် (၃) - Code လက်ခံခြင်း**\n1. သင်၏ ငွေလွှဲ Screenshot ကို Admin မှ စစ်ဆေးပြီး အတည်ပြု (Approve) လုပ်ပေးပါမည်။\n2. အတည်ပြုပြီးပါက Bot မှတစ်ဆင့် သင်၏ လျှို့ဝှက် Voucher Code ကို အလိုအလျောက် ပို့ပေးပါမည်။\n\n---\n\n**အဆင့် (၄) - App ကို Activate လုပ်ခြင်း**\n1. ဒီ Bot မှ 'App ဒေါင်းလုဒ်ရယူရန်' ခလုတ်ကိုနှိပ်ပြီး App ကို Install လုပ်ပါ။\n2. App ကိုဖွင့်ပြီး 'Get Started' ကိုနှိပ်ပါ။\n3. Bot မှရရှိသော Voucher Code ကို Copy ကူးပြီး App ထဲတွင် Paste လုပ်ကာ 'Activate' ကိုနှိပ်ပါ။\n\n---\n\nပြီးပါပြီ။ သင်၏ Starlink Mobile ဝန်ဆောင်မှုကို ယခုအသုံးပြုနိုင်ပါပြီ။";
