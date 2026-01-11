@@ -64,8 +64,11 @@ bot.onText(/\/start/, async (msg) => {
         if (!existingUser) {
             const newUser = new BotUser({ user_id: id, first_name, last_name, username });
             await newUser.save();
-            const notificationText = `New user started the bot:\n\nID: ${id}\nName: ${first_name || ''} ${last_name || ''}\nUsername: @${username || 'N/A'}`;
-            bot.sendMessage(ADMIN_TELEGRAM_ID, notificationText);
+            const fullName = `${first_name || ''} ${last_name || ''}`.trim();
+            const userLink = `[${fullName}](tg://user?id=${id})`;
+            const date = new Date().toLocaleString('en-US', { timeZone: 'Asia/Yangon', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true });
+            const notificationText = `${userLink} started the bot at ${date}`;
+            bot.sendMessage(ADMIN_TELEGRAM_ID, notificationText, { parse_mode: 'Markdown' });
         }
     } catch (error) {
         console.error('Error saving new bot user:', error);

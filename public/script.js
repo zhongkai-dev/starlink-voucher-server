@@ -105,6 +105,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (page) page.classList.remove('active');
         });
         const targetPage = els.contentPages[pageName] || els.contentPages[pageName.replace(/s$/, '')];
+        if (pageName === 'bot-users') {
+            targetPage = els.contentPages.botUsers;
+        } else {
+            targetPage = els.contentPages[pageName] || els.contentPages[pageName.replace(/s$/, '')];
+        }
         if (targetPage) {
             targetPage.classList.add('active');
             switch (pageName) {
