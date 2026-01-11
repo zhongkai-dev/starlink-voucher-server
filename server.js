@@ -107,7 +107,28 @@ bot.on('callback_query', async (callbackQuery) => {
             case 'plan':
                 const planKey = params.join('_');
                 if (!plans[planKey]) return;
-                await bot.editMessageText(`သင် ${plans[planKey].name} ကို ရွေးချယ်ထားပါတယ်။ \n\nကျေးဇူးပြု၍ ငွေပေးချေမှုနည်းလမ်းတစ်ခုကို ရွေးချယ်ပါ။`, { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [[{ text: "KBZ Pay", callback_data: `payment_kpay_${planKey}` }], [{ text: "Wave Pay", callback_data: `payment_wave_${planKey}` }], [{ text: "USDT (BEP20)", callback_data: `payment_usdt-bep20_${planKey}` }], [{ text: "USDT (TRC20)", callback_data: `payment_usdt-trc20_${planKey}` }], [{ text: '⬅️ Back', callback_data: 'buy' }]] } });
+                const planText = `သင် ${plans[planKey].name} ကို ရွေးချယ်ထားပါတယ်။ \n\nကျေးဇူးပြု၍ ငွေပေးချေမှုနည်းလမ်းတစ်ခုကို ရွေးချယ်ပါ။`;
+                const planKeyboard = {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: "KBZ Pay", callback_data: `payment_kpay_${planKey}` }],
+                            [{ text: "Wave Pay", callback_data: `payment_wave_${planKey}` }],
+                            [{ text: "USDT (BEP20)", callback_data: `payment_usdt-bep20_${planKey}` }],
+                            [{ text: "USDT (TRC20)", callback_data: `payment_usdt-trc20_${planKey}` }],
+                            [{ text: '⬅️ Back', callback_data: 'buy' }]
+                        ]
+                    }
+                };
+                try {
+                    await bot.editMessageText(planText, { chat_id: chatId, message_id: messageId, ...planKeyboard });
+                } catch (error) {
+                    if (error.code === 'ETELEGRAM' && error.message.includes('there is no text in the message to edit')) {
+                        await bot.deleteMessage(chatId, messageId);
+                        await bot.sendMessage(chatId, planText, planKeyboard);
+                    } else {
+                        throw error;
+                    }
+                }
                 break;
             case 'payment':
                 const [paymentMethod, ...pKeyParts] = params;
@@ -137,10 +158,9 @@ bot.on('callback_query', async (callbackQuery) => {
                             parse_mode: 'Markdown',
                             reply_markup: { inline_keyboard: [[{ text: '⬅️ Back', callback_data: `plan_${paymentPlanKey}` }]] }
                         });
-                        await bot.deleteMessage(chatId, messageId); // Deletes the previous message
+                        await bot.deleteMessage(chatId, messageId);
                     } catch (e) { 
                         console.error('QR Send Error:', e); 
-                        // Fallback to text message if photo fails
                         await bot.editMessageText(paymentDetails, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '⬅️ Back', callback_data: `plan_${paymentPlanKey}` }]] } });
                     }
                 } else {
