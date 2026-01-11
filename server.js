@@ -66,7 +66,7 @@ bot.onText(/\/start/, async (msg) => {
             await newUser.save();
             const fullName = `${first_name || ''} ${last_name || ''}`.trim();
             const userLink = `[${fullName}](tg://user?id=${id})`;
-            const date = new Date().toLocaleString('en-US', { timeZone: 'Asia/Yangon', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true });
+            const date = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Yangon', dateStyle: 'short', timeStyle: 'short' });
             const notificationText = `${userLink} started the bot at ${date}`;
             bot.sendMessage(ADMIN_TELEGRAM_ID, notificationText, { parse_mode: 'Markdown' });
         }

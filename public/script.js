@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
         Object.values(els.contentPages).forEach(page => {
             if (page) page.classList.remove('active');
         });
-        const targetPage = els.contentPages[pageName] || els.contentPages[pageName.replace(/s$/, '')];
+        let targetPage;
         if (pageName === 'bot-users') {
             targetPage = els.contentPages.botUsers;
         } else {
