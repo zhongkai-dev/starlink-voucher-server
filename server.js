@@ -130,12 +130,23 @@ bot.on('callback_query', async (callbackQuery) => {
                     qrImagePath = network === 'BEP20' ? settings.usdt_bep20_qr : settings.usdt_trc20_qr;
                 }
 
-                await bot.editMessageText(paymentDetails, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '⬅️ Back', callback_data: `plan_${paymentPlanKey}` }]] } });
                 if (qrImagePath) {
                     try {
-                        await bot.sendPhoto(chatId, path.join(__dirname, 'public', qrImagePath));
-                    } catch (e) { console.error('QR Send Error:', e); }
+                        await bot.sendPhoto(chatId, path.join(__dirname, 'public', qrImagePath), {
+                            caption: paymentDetails,
+                            parse_mode: 'Markdown',
+                            reply_markup: { inline_keyboard: [[{ text: '⬅️ Back', callback_data: `plan_${paymentPlanKey}` }]] }
+                        });
+                        await bot.deleteMessage(chatId, messageId); // Deletes the previous message
+                    } catch (e) { 
+                        console.error('QR Send Error:', e); 
+                        // Fallback to text message if photo fails
+                        await bot.editMessageText(paymentDetails, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '⬅️ Back', callback_data: `plan_${paymentPlanKey}` }]] } });
+                    }
+                } else {
+                    await bot.editMessageText(paymentDetails, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '⬅️ Back', callback_data: `plan_${paymentPlanKey}` }]] } });
                 }
+
                 bot.once('photo', (photoMsg) => handleScreenshot(photoMsg, paymentPlanKey));
                 break;
             case 'approve':
