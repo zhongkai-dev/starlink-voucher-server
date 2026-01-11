@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dashboard: document.getElementById('dashboard-content'),
             vouchers: document.getElementById('vouchers-content'),
             payments: document.getElementById('payments-content'),
+            botUsers: document.getElementById('bot-users-content'),
             settings: document.getElementById('settings-content'),
         },
         menuItems: document.querySelectorAll('.sidebar-menu li[data-page]'),
@@ -18,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
         generateVouchersBtn: document.getElementById('generate-vouchers-btn'),
         clearVouchersBtn: document.getElementById('clear-vouchers-btn'),
         clearPaymentsBtn: document.getElementById('clear-payments-btn'),
+        clearBotUsersBtn: document.getElementById('clear-bot-users-btn'),
         generateModal: document.getElementById('generate-modal'),
         generateForm: document.getElementById('generate-form'),
         cancelGenerateBtn: document.getElementById('cancel-generate-btn'),
@@ -53,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         elements.clearVouchersBtn.addEventListener('click', async () => { if (confirm('Are you sure you want to delete ALL vouchers?')) { await apiRequest('/api/vouchers/clear', 'DELETE'); await loadVouchers(); } });
         elements.clearPaymentsBtn.addEventListener('click', async () => { if (confirm('Are you sure you want to delete ALL payments?')) { await apiRequest('/api/users/clear', 'DELETE'); await loadPayments(); } });
+        elements.clearBotUsersBtn.addEventListener('click', async () => { if (confirm('Are you sure you want to delete ALL bot users?')) { await apiRequest('/api/bot-users/clear', 'DELETE'); await loadBotUsers(); } });
 
         const vouchersTableBody = document.querySelector('#vouchers-table tbody');
         if (vouchersTableBody) vouchersTableBody.addEventListener('click', async (e) => {
@@ -101,12 +104,14 @@ document.addEventListener('DOMContentLoaded', () => {
         Object.values(els.contentPages).forEach(page => {
             if (page) page.classList.remove('active');
         });
-        if (els.contentPages[pageName]) {
-            els.contentPages[pageName].classList.add('active');
+        const targetPage = els.contentPages[pageName] || els.contentPages[pageName.replace(/s$/, '')];
+        if (targetPage) {
+            targetPage.classList.add('active');
             switch (pageName) {
                 case 'dashboard': loadDashboardData(); break;
                 case 'vouchers': loadVouchers(); break;
                 case 'payments': loadPayments(); break;
+                case 'bot-users': loadBotUsers(); break;
                 case 'settings': loadSettings(); break;
             }
         }
@@ -186,7 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Data Loading Functions ---
     async function loadDashboardData() {
         try {
-            const [statsData, usersData] = await Promise.all([apiRequest('/api/vouchers/stats'), apiRequest('/api/users')]);
+            const [statsData, usersData, botUsersData] = await Promise.all([apiRequest('/api/vouchers/stats'), apiRequest('/api/users'), apiRequest('/api/bot-users')]);
             const totalPaymentsEl = document.getElementById('total-payments');
             const vouchersUsedEl = document.getElementById('vouchers-used');
             const vouchersAvailableEl = document.getElementById('vouchers-available');
@@ -237,6 +242,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (err) {
             if (err.message !== 'Unauthorized') tableBody.innerHTML = '<tr><td colspan="7">Failed to load data.</td></tr>';
+        }
+    }
+    async function loadBotUsers() {
+        const tableBody = document.querySelector('#bot-users-table tbody');
+        if (!tableBody) return;
+        tableBody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>';
+        try {
+            const data = await apiRequest('/api/bot-users');
+            tableBody.innerHTML = '';
+            if (data.users.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="4">No bot users found.</td></tr>';
+            } else {
+                data.users.forEach(u => {
+                    tableBody.innerHTML += `<tr><td>${u.user_id}</td><td>${u.first_name || ''} ${u.last_name || ''}</td><td>@${u.username || 'N/A'}</td><td>${new Date(u.started_at).toLocaleString()}</td></tr>`;
+                });
+            }
+        } catch (err) {
+            if (err.message !== 'Unauthorized') tableBody.innerHTML = '<tr><td colspan="4">Failed to load data.</td></tr>';
         }
     }
 

