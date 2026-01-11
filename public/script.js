@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
         generateForm: document.getElementById('generate-form'),
         cancelGenerateBtn: document.getElementById('cancel-generate-btn'),
         settingsForm: document.getElementById('settings-form'),
+        adminLink: document.getElementById('admin-link'),
     });
 
     function initializeApp() {
@@ -124,6 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             if (data.success) {
                 localStorage.setItem('authToken', data.token);
+                if(data.admin_url) localStorage.setItem('adminUrl', data.admin_url);
                 showAppPage('dashboard');
             } else {
                 els.loginError.textContent = data.message || 'Invalid credentials';
@@ -136,6 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleLogout(e) {
         if (e) e.preventDefault();
         localStorage.removeItem('authToken');
+        localStorage.removeItem('adminUrl');
         showLoginPage();
     }
 
@@ -145,9 +148,15 @@ document.addEventListener('DOMContentLoaded', () => {
             kpay_name: document.getElementById('kpay-name').value,
             kpay_phone: document.getElementById('kpay-phone').value,
             kpay_note: document.getElementById('kpay-note').value,
+            kpay_qr: document.getElementById('kpay-qr').value,
+            wave_name: document.getElementById('wave-name').value,
+            wave_phone: document.getElementById('wave-phone').value,
+            wave_note: document.getElementById('wave-note').value,
+            wave_qr: document.getElementById('wave-qr').value,
             usdt_bep20_address: document.getElementById('usdt-bep20').value,
             usdt_trc20_address: document.getElementById('usdt-trc20').value,
-            usdt_amount: document.getElementById('usdt-amount').value,
+            usdt_bep20_qr: document.getElementById('usdt-bep20-qr').value,
+            usdt_trc20_qr: document.getElementById('usdt-trc20-qr').value,
         };
         await apiRequest('/api/payment-settings', 'POST', settings);
         alert('Settings saved!');
@@ -238,9 +247,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('kpay-name').value = data.settings.kpay_name || '';
                 document.getElementById('kpay-phone').value = data.settings.kpay_phone || '';
                 document.getElementById('kpay-note').value = data.settings.kpay_note || '';
+                document.getElementById('kpay-qr').value = data.settings.kpay_qr || '';
+                document.getElementById('wave-name').value = data.settings.wave_name || '';
+                document.getElementById('wave-phone').value = data.settings.wave_phone || '';
+                document.getElementById('wave-note').value = data.settings.wave_note || '';
+                document.getElementById('wave-qr').value = data.settings.wave_qr || '';
                 document.getElementById('usdt-bep20').value = data.settings.usdt_bep20_address || '';
                 document.getElementById('usdt-trc20').value = data.settings.usdt_trc20_address || '';
-                document.getElementById('usdt-amount').value = data.settings.usdt_amount || 12;
+                document.getElementById('usdt-bep20-qr').value = data.settings.usdt_bep20_qr || '';
+                document.getElementById('usdt-trc20-qr').value = data.settings.usdt_trc20_qr || '';
+            }
+            const adminLink = getElements().adminLink;
+            if (adminLink) {
+                const adminUrl = localStorage.getItem('adminUrl');
+                if(adminUrl) adminLink.href = adminUrl;
             }
         } catch (err) {
             if (err.message !== 'Unauthorized') alert('Could not load settings.');

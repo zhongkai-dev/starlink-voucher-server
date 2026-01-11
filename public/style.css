@@ -62,9 +62,10 @@ tbody tr:last-child td { border-bottom: none; }
 .status-used { color: var(--accent-red); font-weight: 600; }
 .status-available { color: #34D399; font-weight: 600; }
 
-.settings-form-container { padding: 20px; max-width: 600px; }
-.settings-form-container h3 { margin-top: 20px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
-.settings-form-container .action-button { margin-top: 20px; }
+.settings-form-container { padding: 20px; max-width: 800px; margin: 0 auto; }
+#settings-form { display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; }
+.settings-form-container h3 { margin-top: 20px; margin-bottom: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; grid-column: 1 / -1; }
+.settings-form-container .action-button { margin-top: 20px; grid-column: 1 / -1; justify-self: center; width: 50%; }
 
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
 .modal-overlay.active { display: flex; }
@@ -94,6 +95,8 @@ tbody tr:last-child td { border-bottom: none; }
     .card-container { grid-template-columns: 1fr; padding: 15px; gap: 15px; }
     .card p { font-size: 24px; }
     
+    #settings-form { grid-template-columns: 1fr; }
+    .settings-form-container .action-button { width: 100%; }
     .table-container { padding: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     table { min-width: 600px; }
     tbody td, thead th { padding: 10px; font-size: 13px; }
