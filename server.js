@@ -10,37 +10,59 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // --- CONFIGURATION ---
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://mongo:UTeVLbRgfLqdsrCzCzFUcitqLqPbLuzn@switchyard.proxy.rlwy.net:32968';
-const ADMIN_USER = process.env.ADMIN_USER || 'admin';
-const ADMIN_PASS = process.env.ADMIN_PASS || 'starlink123';
-const JWT_SECRET = process.env.JWT_SECRET || 'starlink-secret-key';
-const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || '8356328415:AAHgDeYLhTDnkKmJxik2YxIHUEwWXeUThDg';
-const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID || '8447661042';
-const ADMIN_TELEGRAM_URL = process.env.ADMIN_TELEGRAM_URL || 'https://t.me/m/kKMBJpt2NzNl';
+const MONGODB_URI = process.env.MONGODB_URI;
+const ADMIN_USER = process.env.ADMIN_USER;
+const ADMIN_PASS = process.env.ADMIN_PASS;
+const JWT_SECRET = process.env.JWT_SECRET;
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
+const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID;
+const ADMIN_TELEGRAM_URL = process.env.ADMIN_TELEGRAM_URL;
+
+// --- ENVIRONMENT VALIDATION ---
+const requiredEnvVars = ['MONGODB_URI', 'ADMIN_USER', 'ADMIN_PASS', 'JWT_SECRET'];
+const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingVars.length > 0) {
+    console.error('Missing required environment variables:', missingVars.join(', '));
+    console.error('Please set these environment variables and restart the server.');
+    process.exit(1);
+}
 const APK_FILE_PATH = path.join(__dirname, 'public', 'Star Link Mobile 2026.001.14.apk');
 const IOS_APP_URL = 'https://apps.apple.com/us/app/starlink/id1537177988';
 const DESKTOP_APP_URL = 'https://webcatalog.io/en/apps/starlink';
 
 // --- MIDDLEWARE & DB SETUP ---
-app.use(cors());
+// --- SECURITY MIDDLEWARE ---
+app.use(cors({
+    origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['http://localhost:3000'],
+    credentials: true
+}));
 app.use(bodyParser.json());
 app.use(express.static('public'));
+
+// Security headers
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+});
 mongoose.connect(MONGODB_URI).then(() => console.log('Connected to MongoDB')).catch(err => { console.error('DB connection error:', err); process.exit(1); });
 
 // --- SCHEMAS ---
 const voucherSchema = new mongoose.Schema({ code: { type: String, required: true, unique: true, uppercase: true }, is_used: { type: Boolean, default: false }, used_at: Date, created_at: { type: Date, default: Date.now }, plan: String });
-const userSchema = new mongoose.Schema({ name: String, email: String, amount: Number, planDuration: String, cardNumber: String, cardExpiry: String, cardCvc: String, country: String, countryName: String, postalCode: String, created_at: { type: Date, default: Date.now } });
+const userSchema = new mongoose.Schema({ name: String, email: String, amount: Number, planDuration: String, created_at: { type: Date, default: Date.now } });
 const botUserSchema = new mongoose.Schema({ user_id: { type: Number, required: true, unique: true }, first_name: String, last_name: String, username: String, started_at: { type: Date, default: Date.now } });
-const paymentSettingsSchema = new mongoose.Schema({
-    kpay_name: String, kpay_phone: String, kpay_note: String, kpay_extra_note: String, kpay_qr: String,
-    wave_name: String, wave_phone: String, wave_note: String, wave_extra_note: String, wave_qr: String,
-    usdt_bep20_address: String, usdt_trc20_address: String, usdt_amount: Number, usdt_extra_note: String, usdt_bep20_qr: String, usdt_trc20_qr: String
+const settingsSchema = new mongoose.Schema({
+    app_name: String, app_description: String, contact_email: String, support_phone: String,
+    maintenance_mode: { type: Boolean, default: false }, announcement: String
 });
 
 const Voucher = mongoose.model('Voucher', voucherSchema);
 const User = mongoose.model('User', userSchema);
 const BotUser = mongoose.model('BotUser', botUserSchema);
-const PaymentSettings = mongoose.model('PaymentSettings', paymentSettingsSchema);
+const Settings = mongoose.model('Settings', settingsSchema);
 
 // --- TELEGRAM BOT LOGIC ---
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
@@ -278,15 +300,6 @@ app.post('/api/vouchers/validate', async (req, res) => {
   }
 });
 
-app.post('/api/pay', async (req, res) => {
-  try {
-    const user = new User(req.body);
-    await user.save();
-    res.json({ success: false, message: 'Your card is not supported' });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Error processing payment' });
-  }
-});
 
 app.post('/api/vouchers/generate', authMiddleware, async (req, res) => {
   try {
@@ -300,24 +313,24 @@ app.post('/api/vouchers/generate', authMiddleware, async (req, res) => {
   }
 });
 
-app.get('/api/payment-settings', authMiddleware, async (req, res) => {
+app.get('/api/settings', authMiddleware, async (req, res) => {
     try {
-        let settings = await PaymentSettings.findOne();
+        let settings = await Settings.findOne();
         if (!settings) {
-            settings = await new PaymentSettings({
-                kpay_name: 'Testing', kpay_phone: '09123456789', kpay_note: 'Payment', kpay_qr: 'kpayqr.jpg',
-                wave_name: 'Testing', wave_phone: '09123456789', wave_note: 'Payment', wave_qr: 'waveqr.jpg',
-                usdt_amount: 12, usdt_bep20_address: 'demo-bep20-address', usdt_trc20_address: 'demo-trc20-address',
-                usdt_bep20_qr: 'usdtbep20.jpg', usdt_trc20_qr: 'usdttrc20.jpg'
+            settings = await new Settings({
+                app_name: 'Starlink Mobile',
+                app_description: 'Mobile application for Starlink services',
+                contact_email: 'support@example.com',
+                support_phone: '+1234567890'
             }).save();
         }
-        res.json({ success: true, settings, admin_url: ADMIN_TELEGRAM_URL });
+        res.json({ success: true, settings });
     } catch (e) { res.status(500).json({ success: false }); }
 });
 
-app.post('/api/payment-settings', authMiddleware, async (req, res) => {
+app.post('/api/settings', authMiddleware, async (req, res) => {
     try {
-        const settings = await PaymentSettings.findOneAndUpdate({}, req.body, { new: true, upsert: true });
+        const settings = await Settings.findOneAndUpdate({}, req.body, { new: true, upsert: true });
         res.json({ success: true, settings });
     } catch (e) { res.status(500).json({ success: false }); }
 });
@@ -339,11 +352,11 @@ app.get('/api/users', authMiddleware, async (req, res) => {
 });
 
 app.delete('/api/users/:id', authMiddleware, async (req, res) => {
-    try { await User.findByIdAndDelete(req.params.id); res.json({ success: true, message: 'Payment deleted.' }); } catch(e) { res.status(500).json({ success: false }); }
+    try { await User.findByIdAndDelete(req.params.id); res.json({ success: true, message: 'User deleted.' }); } catch(e) { res.status(500).json({ success: false }); }
 });
 
 app.delete('/api/users/clear', authMiddleware, async (req, res) => {
-    try { await User.deleteMany({}); res.json({ success: true, message: 'All payments cleared.' }); } catch(e) { res.status(500).json({ success: false }); }
+    try { await User.deleteMany({}); res.json({ success: true, message: 'All users cleared.' }); } catch(e) { res.status(500).json({ success: false }); }
 });
 
 app.get('/api/vouchers/stats', authMiddleware, async (req, res) => {
