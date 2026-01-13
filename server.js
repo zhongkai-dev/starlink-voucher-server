@@ -56,13 +56,19 @@ const userSchema = new mongoose.Schema({ name: String, email: String, amount: Nu
 const botUserSchema = new mongoose.Schema({ user_id: { type: Number, required: true, unique: true }, first_name: String, last_name: String, username: String, started_at: { type: Date, default: Date.now } });
 const settingsSchema = new mongoose.Schema({
     app_name: String, app_description: String, contact_email: String, support_phone: String,
-    maintenance_mode: { type: Boolean, default: false }, announcement: String
+    maintenance_mode: { type: Boolean, default: false }, announcement: String,
+    // Payment settings (for KBZ Pay, Wave Pay, USDT)
+    kpay_name: String, kpay_phone: String, kpay_note: String, kpay_extra_note: String, kpay_qr: String,
+    wave_name: String, wave_phone: String, wave_note: String, wave_extra_note: String, wave_qr: String,
+    usdt_bep20_address: String, usdt_trc20_address: String, usdt_amount: Number, usdt_extra_note: String, usdt_bep20_qr: String, usdt_trc20_qr: String
 });
 
 const Voucher = mongoose.model('Voucher', voucherSchema);
 const User = mongoose.model('User', userSchema);
 const BotUser = mongoose.model('BotUser', botUserSchema);
 const Settings = mongoose.model('Settings', settingsSchema);
+// Alias for backward compatibility
+const PaymentSettings = Settings;
 
 // --- TELEGRAM BOT LOGIC ---
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
@@ -321,16 +327,40 @@ app.get('/api/settings', authMiddleware, async (req, res) => {
                 app_name: 'Starlink Mobile',
                 app_description: 'Mobile application for Starlink services',
                 contact_email: 'support@example.com',
-                support_phone: '+1234567890'
+                support_phone: '+1234567890',
+                // Default payment settings
+                kpay_name: 'Starlink Mobile', kpay_phone: '09123456789', kpay_note: 'Starlink Payment', kpay_qr: 'kpayqr.jpg',
+                wave_name: 'Starlink Mobile', wave_phone: '09123456789', wave_note: 'Starlink Payment', wave_qr: 'waveqr.jpg',
+                usdt_amount: 12, usdt_bep20_address: 'demo-bep20-address', usdt_trc20_address: 'demo-trc20-address',
+                usdt_bep20_qr: 'usdtbep20.jpg', usdt_trc20_qr: 'usdttrc20.jpg'
             }).save();
         }
         res.json({ success: true, settings });
     } catch (e) { res.status(500).json({ success: false }); }
 });
 
-app.post('/api/settings', authMiddleware, async (req, res) => {
+app.get('/api/payment-settings', authMiddleware, async (req, res) => {
     try {
-        const settings = await Settings.findOneAndUpdate({}, req.body, { new: true, upsert: true });
+        let settings = await PaymentSettings.findOne();
+        if (!settings) {
+            settings = await new PaymentSettings({
+                app_name: 'Starlink Mobile',
+                app_description: 'Mobile application for Starlink services',
+                contact_email: 'support@example.com',
+                support_phone: '+1234567890',
+                kpay_name: 'Starlink Mobile', kpay_phone: '09123456789', kpay_note: 'Starlink Payment', kpay_qr: 'kpayqr.jpg',
+                wave_name: 'Starlink Mobile', wave_phone: '09123456789', wave_note: 'Starlink Payment', wave_qr: 'waveqr.jpg',
+                usdt_amount: 12, usdt_bep20_address: 'demo-bep20-address', usdt_trc20_address: 'demo-trc20-address',
+                usdt_bep20_qr: 'usdtbep20.jpg', usdt_trc20_qr: 'usdttrc20.jpg'
+            }).save();
+        }
+        res.json({ success: true, settings });
+    } catch (e) { res.status(500).json({ success: false }); }
+});
+
+app.post('/api/payment-settings', authMiddleware, async (req, res) => {
+    try {
+        const settings = await PaymentSettings.findOneAndUpdate({}, req.body, { new: true, upsert: true });
         res.json({ success: true, settings });
     } catch (e) { res.status(500).json({ success: false }); }
 });
